@@ -1,0 +1,12 @@
+# Entornos virtuales
+venv/
+
+# Archivos de caché de Python
+__pycache__/
+*.pyc
+
+# Datasets (No subas datos pesados o privados a GitHub)
+data/
+
+# Archivos del sistema
+.DS_Store
