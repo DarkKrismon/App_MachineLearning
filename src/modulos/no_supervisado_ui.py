@@ -2,7 +2,7 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 from service import no_supervisado_service
-import ollama_client
+import src.ia_client as ia_client
 
 
 ''' 
@@ -104,7 +104,7 @@ def renderizar_fase_no_supervisada():
             # Este es el segundo botón. Al pulsarlo, recargará, pero como 'clustering_calculado' es True, la sección 3 sobrevivirá
             if st.button("✨ Generar Lectura de los Grupos", type="primary", use_container_width=True):
                 with st.spinner("Ollama está leyendo los datos y escribiendo el reporte..."):
-                    st.session_state['analisis_ia_tribus'] = ollama_client.interpretar_grupos(perfiles)
+                    st.session_state['analisis_ia_tribus'] = ia_client.interpretar_grupos(perfiles)
                     st.rerun() # Forzamos recarga
 
             if st.session_state['analisis_ia_tribus']:

@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import pickle
-import ollama_client
+import src.ia_client as ia_client
 from service import supervisado_service
 
 
@@ -296,7 +296,7 @@ def renderizar_fase_supervisada():
             
             if st.button("🧠 Generar Reporte Estratégico", type="primary"):
                 with st.spinner("Ollama está redactando el informe ejecutivo..."):
-                    reporte_ia = ollama_client.generar_reporte_ejecutivo(resultados)
+                    reporte_ia = ia_client.generar_reporte_ejecutivo(resultados)
                     st.success("Reporte generado con éxito.")
                     st.markdown(reporte_ia)
 

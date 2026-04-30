@@ -1,8 +1,8 @@
 import streamlit as st
 import service.data_service as data_service
-import ollama_client
+import src.ia_client as ia_client
 from sklearn.model_selection import train_test_split
-import ollama_client
+import src.ia_client as ia_client
 
 
 st.set_page_config(page_title="Machine-Learning", page_icon="🤖", layout="wide")
@@ -46,7 +46,7 @@ if fase == 1:
                 
             if resumen_completo:
                 with st.spinner("La IA está analizando la estructura de tus datos..."):
-                    st.session_state['diagnostico_ia'] = ollama_client.consultar_diagnostico(resumen_completo)
+                    st.session_state['diagnostico_ia'] = ia_client.consultar_diagnostico(resumen_completo)
 
 
     diagnostico = st.session_state.get('diagnostico_ia')
