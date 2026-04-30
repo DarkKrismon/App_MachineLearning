@@ -295,8 +295,8 @@ def renderizar_fase_supervisada():
             st.info("💡 La IA leerá los gráficos técnicos y redactará un resumen con recomendaciones estratégicas para tus directivos.")
             
             if st.button("🧠 Generar Reporte Estratégico", type="primary"):
-                with st.spinner("Ollama está redactando el informe ejecutivo..."):
-                    reporte_ia = ia_client.generar_reporte_ejecutivo(resultados)
+                with st.spinner("La IA está redactando el informe ejecutivo..."):
+                    reporte_ia = ia_client.generar_reporte_ejecutivo(resultados, df_test, columna_target)
                     st.success("Reporte generado con éxito.")
                     st.markdown(reporte_ia)
 

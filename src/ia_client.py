@@ -44,7 +44,7 @@ def consultar_diagnostico(resumen_total, modelo=MODELO_DEFAULT):
         return f"🚨 Error en la conexión con la IA (Diagnóstico): {e}"
     
 
-def generar_reporte_ejecutivo(resultados_ml, modelo=MODELO_DEFAULT):
+def generar_reporte_ejecutivo(resultados_ml, df_test, columna_target, modelo=MODELO_DEFAULT):
     """Convierte métricas matemáticas crudas en un reporte de negocio."""
     if not cliente_ia:
         return "🚨 Error: No se ha configurado la API Key de Groq."
@@ -57,10 +57,14 @@ def generar_reporte_ejecutivo(resultados_ml, modelo=MODELO_DEFAULT):
     Habla de fiabilidad, variables clave, impacto en el negocio.
     """
     
+    columnas_usadas = ", ".join(df_test.columns.tolist())
+    
     datos_crudos = f"""
     - Problema a resolver: {resultados_ml['tipo_problema']}
+    - Objetivo de negocio (Target): Predecir la variable '{columna_target}'
     - Precisión / Fiabilidad del modelo: {resultados_ml['ganador_score_cv'] * 100:.2f}%
     - Algoritmo ganador: {resultados_ml['ganador_nombre']}
+    - Variables/Datos utilizados para la predicción: {columnas_usadas}
     """
     
     try:
@@ -70,7 +74,7 @@ def generar_reporte_ejecutivo(resultados_ml, modelo=MODELO_DEFAULT):
                 {'role': 'user', 'content': f"Genera el reporte ejecutivo basándote en esto:\n{datos_crudos}"}
             ],
             model=modelo,
-            temperature=0.5 # Un poco más de temperatura para mejorar la redacción
+            temperature=0.5
         )
         return respuesta.choices[0].message.content
     except Exception as e:
