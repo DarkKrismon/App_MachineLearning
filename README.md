@@ -1,6 +1,6 @@
 # 🧠 AutoML Suite & Data Copilot: Plataforma Segura de Machine Learning
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)]([text](https://appmachinelearning-darkkrismon4.streamlit.app/))
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://appmachinelearning-darkkrismon4.streamlit.app/)
 
 Una aplicación web *End-to-End* desarrollada en **Python** y **Streamlit** que sigue el ciclo de vida de los datos. Actúa como un copiloto interactivo que guía al usuario desde la ingesta de datos hasta la interpretación de modelos predictivos y de clustering.
 
