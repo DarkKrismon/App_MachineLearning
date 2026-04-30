@@ -13,7 +13,7 @@ except Exception:
     cliente_ia = None
 
 # Usamos el modelo Llama 3 de 8 billones de parámetros optimizado por Groq
-MODELO_DEFAULT = "llama3-8b-8192" 
+MODELO_DEFAULT = "llama-3.1-8b-instant" 
 
 
 def consultar_diagnostico(resumen_total, modelo=MODELO_DEFAULT):
