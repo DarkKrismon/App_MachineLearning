@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import pickle
-import ia_client as ia_client
+import ia_client
 from service import supervisado_service
 
 
@@ -167,7 +167,7 @@ def renderizar_fase_supervisada():
                 except Exception as e:
                     st.error(f"Error durante el entrenamiento: {e}")
 
-        if st.session_state['historial_entrenamientos']:
+        if st.session_state.get('historial_entrenamientos'):
             st.divider()
             st.markdown("### 📜 Historial de Modelos Entrenados")
             df_historial = pd.DataFrame(st.session_state['historial_entrenamientos'])
