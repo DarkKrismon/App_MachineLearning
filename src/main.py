@@ -1,8 +1,7 @@
 import streamlit as st
 import service.data_service as data_service
-import ia_client as ia_client
+import ia_client
 from sklearn.model_selection import train_test_split
-import ia_client as ia_client
 
 
 st.set_page_config(page_title="Machine-Learning", page_icon="🤖", layout="wide")
