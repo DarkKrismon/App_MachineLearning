@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import pickle
-import src.ia_client as ia_client
+import ia_client as ia_client
 from service import supervisado_service
 
 

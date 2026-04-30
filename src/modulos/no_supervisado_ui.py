@@ -2,7 +2,7 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 from service import no_supervisado_service
-import src.ia_client as ia_client
+import ia_client as ia_client
 
 
 ''' 
