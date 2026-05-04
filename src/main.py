@@ -194,8 +194,6 @@ if fase == 1:
 
 elif fase == 2:
     st.title("🧹 Fase 2: Limpieza del Dataset")
-    
-    # 1. IDENTIFICAR DE DÓNDE VENIMOS Y QUÉ DATOS TOCAR
     ruta = st.session_state.get('ruta_elegida', 'no_supervisado')
 
     if ruta == 'supervisado':
@@ -203,7 +201,6 @@ elif fase == 2:
     else:
         df_actual = st.session_state.get('df_entero')
 
-    # 3 Pestañas para organización
     tab_limpieza, tab_outliers, tab_variables = st.tabs([
         "📰 1. Limpieza Datos", 
         "🚨 2. Radar de Anomalías", 
@@ -239,10 +236,7 @@ elif fase == 2:
                     st.write("---")
 
                 if st.form_submit_button("Aplicar Cambios del Bloque"):
-                    # EL GRAN CAMBIO DE LÓGICA AQUÍ
                     if ruta == 'supervisado':
-                        # NECESITAS CREAR ESTA FUNCIÓN EN TU SERVICE. 
-                        # Debe calcular medias en Train y aplicarlas a Train Y Test.
                         df_train_limpio, df_test_limpio = data_service.aplicar_limpieza_dual(
                             st.session_state['df_train'], 
                             st.session_state['df_test'], 
@@ -298,9 +292,7 @@ elif fase == 2:
                 with col_btn2:
                     if st.button("☢️ Eliminar estas filas", type="primary"):
                         if ruta == 'supervisado':
-                            # ¡OJO A ESTA REGLA DE NEGOCIO! 
                             st.session_state['df_train'] = st.session_state['df_train'].drop(index=indices)
-                            # NO TOCAMOS EL TEST AQUÍ (Lee la explicación abajo)
                         else:
                             st.session_state['df_entero'] = st.session_state['df_entero'].drop(index=indices)
                         

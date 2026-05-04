@@ -32,7 +32,7 @@ def renderizar_fase_no_supervisada():
     cols_elegidas = st.multiselect("Variables clave:", cols_num, default=cols_num[:3])
 
     if len(cols_elegidas) >= 2:
-        df_base, datos_escalados, scaler = no_supervisado_service.preparar_datos_clustering(df_actual, cols_elegidas)
+        df_base, datos_escalados = no_supervisado_service.preparar_datos_clustering(df_actual, cols_elegidas)
         
         st.divider()
         st.markdown("### 2. El Dilema del Codo (Buscando el número ideal)")
@@ -54,19 +54,18 @@ def renderizar_fase_no_supervisada():
             st.session_state['clustering_calculado'] = True
             st.session_state['analisis_ia_tribus'] = None
             
-            df_tribus, modelo_kmeans = no_supervisado_service.ejecutar_clustering(df_base, datos_escalados, n_clusters)
+            df_tribus = no_supervisado_service.ejecutar_clustering(df_base, datos_escalados, n_clusters)
             st.session_state['df_tribus'] = df_tribus
             st.session_state['perfiles_tribus'] = no_supervisado_service.obtener_centroides_radar(df_tribus, cols_elegidas)
             st.session_state['n_clusters_guardado'] = n_clusters
 
-        # Si el baúl tiene datos: Pintamos la Fase 3
+
         if st.session_state.get('clustering_calculado', False):
             st.divider()
             
-            # Rescatamos los datos del baúl para usarlos
             df_tribus = st.session_state['df_tribus']
             perfiles = st.session_state['perfiles_tribus']
-            n_clusters_guardado = st.session_state['n_clusters_guardado']
+            st.session_state['n_clusters_guardado']
 
             st.markdown(f"### 3. Resultados")
             
@@ -81,7 +80,7 @@ def renderizar_fase_no_supervisada():
             with tab_perfiles:
                 st.write("Este gráfico muestra el valor promedio de cada variable para cada grupo.")
                 
-                # Gráfico de Radar chulo con Plotly
+
                 fig_radar = go.Figure()
                 for i, fila in perfiles.iterrows():
                     fig_radar.add_trace(go.Scatterpolar(
@@ -95,17 +94,17 @@ def renderizar_fase_no_supervisada():
 
                 st.write("**Datos Crudos (Media de cada Tribu):**")
                 st.dataframe(perfiles.set_index('Tribu'), use_container_width=True)
-                
+
+
             # --- SECCIÓN DE INTELIGENCIA ARTIFICIAL ---
             st.divider()
             st.markdown("### 4. Análisis Sociológico con Inteligencia Artificial")
             st.info("¿Los números crudos no te dicen nada? Deja que nuestra IA lea la tabla y le ponga cara y ojos a cada Tribu.")
-                
-            # Este es el segundo botón. Al pulsarlo, recargará, pero como 'clustering_calculado' es True, la sección 3 sobrevivirá
+            
             if st.button("✨ Generar Lectura de los Grupos", type="primary", use_container_width=True):
                 with st.spinner("Ollama está leyendo los datos y escribiendo el reporte..."):
                     st.session_state['analisis_ia_tribus'] = ia_client.interpretar_grupos(perfiles)
-                    st.rerun() # Forzamos recarga
+                    st.rerun()
 
             if st.session_state['analisis_ia_tribus']:
                 st.success("¡Análisis completado!")

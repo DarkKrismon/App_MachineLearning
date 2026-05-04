@@ -61,7 +61,6 @@ def entrenar_automl(df_train, df_test, columna_target, hiperparametros):
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
-    # Adiós al X_completo_scaled que causaba el Data Leakage
     
     #Extraemos hiperparámetros
     rf_n = hiperparametros['rf_arboles']
@@ -128,7 +127,6 @@ def entrenar_automl(df_train, df_test, columna_target, hiperparametros):
     if es_clasificacion:
         y_pred_ganador = mejor_modelo.predict(X_test_scaled)
         
-        # Filtramos las advertencias si hay clases que el modelo no predijo
         reporte_detallado = classification_report(y_test, y_pred_ganador, target_names=clases_reales, zero_division=0)
         reporte_dict = classification_report(y_test, y_pred_ganador, target_names=clases_reales, zero_division=0, output_dict=True)
         matriz_conf = confusion_matrix(y_test, y_pred_ganador).tolist()
@@ -195,7 +193,7 @@ def entrenar_automl_gridsearch(df_train, df_test, columna_target):
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
     
-    # Cuadrícula de búsqueda (El Grid)
+    # Cuadrícula de búsqueda
     param_grid = {
         'n_estimators': [50, 100, 200],
         'max_depth': [3, 5, 7],

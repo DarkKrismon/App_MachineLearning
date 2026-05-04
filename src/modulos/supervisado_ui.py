@@ -184,10 +184,8 @@ def renderizar_fase_supervisada():
             st.markdown("### 🏆 Selección del Modelo para la fase 4, Análisis de Datos")
             st.info("Elige que intento del historial quieres llevar a producción.")
             
-            # Creamos las opciones legibles para el desplegable
             opciones_exp = [f"Exp {r['ID']} - {r['Algoritmo']} ({r['Precisión']})" for r in st.session_state['historial_entrenamientos']]
             
-            # Por defecto, seleccionamos el último experimento que se ha hecho
             experimento_elegido = st.selectbox("Selecciona el intento:", opciones_exp, index=len(opciones_exp)-1)
             
             if st.button("📈 Fase 4: Interpretación de Datos", type="primary"):
