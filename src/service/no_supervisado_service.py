@@ -1,3 +1,4 @@
+import streamlit as st
 import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
@@ -11,10 +12,14 @@ Funciones que reciben y devuelven valores listos.
 
 def preparar_datos_clustering(df, columnas):
     """Escala los datos porque K-Means es súper sensible a las magnitudes."""
-    df_filtrado = df[columnas].dropna().copy()
-    scaler = StandardScaler()
-    datos_escalados = scaler.fit_transform(df_filtrado)
-    return df_filtrado, datos_escalados, scaler
+    try:
+        df_filtrado = df[columnas].dropna().copy()
+        scaler = StandardScaler()
+        datos_escalados = scaler.fit_transform(df_filtrado)
+        return df_filtrado, datos_escalados, scaler
+    except ValueError as e:
+        st.error("🚨 Error matemático: Has seleccionado una columna que contiene texto o formatos no numéricos. K-Means solo acepta números.")
+        st.stop()
 
 def calcular_codo(datos_escalados, max_clusters=10):
     """Ejecuta K-Means múltiples veces para encontrar el número ideal de grupos."""

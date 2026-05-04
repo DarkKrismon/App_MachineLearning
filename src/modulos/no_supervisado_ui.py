@@ -4,12 +4,10 @@ import plotly.graph_objects as go
 from service import no_supervisado_service
 import ia_client
 
-
 ''' 
-Encargado visual de la fase 3 y 4 de modelo NO Sºupervisado 
+Encargado visual de la fase 3 y 4 de modelo NO Supervisado 
 llamando a la función "renderizar_fase_no_supervisada""
 '''
-
 
 def renderizar_fase_no_supervisada():
     st.title("🌌 Fase 3: Descubrimiento de Grupos (Clustering)")
@@ -18,9 +16,11 @@ def renderizar_fase_no_supervisada():
     if 'analisis_ia_tribus' not in st.session_state:
         st.session_state['analisis_ia_tribus'] = None
 
-    df_actual = st.session_state['dataframes']["dataset_unificado.csv"]
+    if 'df_limpio' in st.session_state:
+        df_actual = st.session_state['df_limpio']
+    else:
+        df_actual = st.session_state['dataframes'].get("dataset_unificado.csv", list(st.session_state['dataframes'].values())[0])
     
-
     cols_num = df_actual.select_dtypes(include=['int64', 'float64']).columns.tolist()
     
     if len(cols_num) < 2:
@@ -32,7 +32,7 @@ def renderizar_fase_no_supervisada():
     cols_elegidas = st.multiselect("Variables clave:", cols_num, default=cols_num[:3])
 
     if len(cols_elegidas) >= 2:
-        df_base, datos_escalados = no_supervisado_service.preparar_datos_clustering(df_actual, cols_elegidas)
+        df_base, datos_escalados, scaler = no_supervisado_service.preparar_datos_clustering(df_actual, cols_elegidas)
         
         st.divider()
         st.markdown("### 2. El Dilema del Codo (Buscando el número ideal)")
@@ -48,17 +48,15 @@ def renderizar_fase_no_supervisada():
             fig_codo = px.line(x=rango_k, y=inercias, markers=True, title="Gráfico del Codo", labels={'x':'Número de Tribus (k)', 'y':'Inercia / Caos'})
             st.plotly_chart(fig_codo, use_container_width=True)
 
-
         btn_entrenar = st.button("🚀 Ejecutar Agrupación K-Means", type="primary")
         if btn_entrenar:
             st.session_state['clustering_calculado'] = True
             st.session_state['analisis_ia_tribus'] = None
             
-            df_tribus = no_supervisado_service.ejecutar_clustering(df_base, datos_escalados, n_clusters)
+            df_tribus, modelo_kmeans = no_supervisado_service.ejecutar_clustering(df_base, datos_escalados, n_clusters)
             st.session_state['df_tribus'] = df_tribus
             st.session_state['perfiles_tribus'] = no_supervisado_service.obtener_centroides_radar(df_tribus, cols_elegidas)
             st.session_state['n_clusters_guardado'] = n_clusters
-
 
         if st.session_state.get('clustering_calculado', False):
             st.divider()
@@ -80,7 +78,6 @@ def renderizar_fase_no_supervisada():
             with tab_perfiles:
                 st.write("Este gráfico muestra el valor promedio de cada variable para cada grupo.")
                 
-
                 fig_radar = go.Figure()
                 for i, fila in perfiles.iterrows():
                     fig_radar.add_trace(go.Scatterpolar(
@@ -95,14 +92,13 @@ def renderizar_fase_no_supervisada():
                 st.write("**Datos Crudos (Media de cada Tribu):**")
                 st.dataframe(perfiles.set_index('Tribu'), use_container_width=True)
 
-
             # --- SECCIÓN DE INTELIGENCIA ARTIFICIAL ---
             st.divider()
             st.markdown("### 4. Análisis Sociológico con Inteligencia Artificial")
             st.info("¿Los números crudos no te dicen nada? Deja que nuestra IA lea la tabla y le ponga cara y ojos a cada Tribu.")
             
             if st.button("✨ Generar Lectura de los Grupos", type="primary", use_container_width=True):
-                with st.spinner("Ollama está leyendo los datos y escribiendo el reporte..."):
+                with st.spinner("Groq (Llama 3.1) está analizando los centroides y escribiendo el reporte..."):
                     st.session_state['analisis_ia_tribus'] = ia_client.interpretar_grupos(perfiles)
                     st.rerun()
 
