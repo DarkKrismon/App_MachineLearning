@@ -3,10 +3,11 @@ import pandas as pd
 import pickle
 import ia_client
 from service import supervisado_service
+from service import data_service
 
 
 ''' 
-Encargado visual de la fase 3 y 4 de modelo supervisado 
+Encargado visual de la fase 3, 4 y 5 de modelo supervisado 
 llamando a la función "renderizar_fase_supervisada""
 '''
 
@@ -211,10 +212,9 @@ def renderizar_fase_supervisada():
         columnas_X = st.session_state['columnas_entrenamiento']
         modelo_ganador = resultados['ganador_modelo']
 
-        tab_tec, tab_neg, tab_simulador = st.tabs([
+        tab_tec, tab_neg = st.tabs([
             "⚙️ Panel Técnico", 
-            "👔 Panel Ejecutivo", 
-            "🔮 Simulador de Predicciones (CSV)"
+            "👔 Panel Ejecutivo"
         ])
 
         # --- PESTAÑA 1: TÉCNICA (Dashboard Visual) ---
@@ -298,85 +298,187 @@ def renderizar_fase_supervisada():
                     st.success("Reporte generado con éxito.")
                     st.markdown(reporte_ia)
 
+        st.divider()
+        st.markdown("### 🚀 Siguiente Paso: Producción y Predicción")
+        st.info("¿Estás satisfecho con las métricas del modelo? Es hora de ponerlo a trabajar. Avanza a la Fase 5 para subir datos nuevos (clientes, pacientes, casas...) y usar esta IA para predecir su futuro.")
+        
+        if st.button("🔮 Ir a Fase 5 (Simulador y Predicciones)", type="primary", use_container_width=True):
+            st.session_state['fase_actual'] = 5
+            st.rerun()
 
-        # --- PESTAÑA 3: EL SIMULADOR MASIVO (WHAT-IF) ---
-        with tab_simulador:
-            st.markdown("### 🔮 Predicción Masiva")
-            st.info("Sube un archivo CSV con nuevos clientes/pasajeros. La Inteligencia Artificial predecirá su futuro.")
-            
-            archivo_nuevo = st.file_uploader("Sube el CSV con los nuevos datos:", type=["csv"], key="uploader_simulador")
-            
-            if archivo_nuevo:
-                # Intentamos leer con coma por defecto
-                df_nuevo = pd.read_csv(archivo_nuevo)
+
+
+    # ==============================================
+    #                 FASE 5: PRODUCCIÓN
+    # ==============================================
+    elif fase == 5:
+        st.title("🔮 Fase 5: Producción y Simulación")
+        st.markdown("Pon tu modelo a trabajar. Puedes hacer predicciones masivas subiendo un CSV, o simular un caso único en tiempo real.")
+
+        resultados = st.session_state.get('ml_results')
+        df_train = st.session_state.get('df_train')
+        columna_target = st.session_state.get('target_elegido')
+
+        if resultados is None or df_train is None:
+            st.error("🚨 El modelo no está en memoria. Vuelve a la Fase 3 y entrénalo.")
+
+            if st.button("⬅️ Volver a los Resultados (Fase 3)", use_container_width=True):
+                st.session_state['fase_actual'] = 3
+                st.rerun()
+        else:
+            columnas_entrenamiento = [col for col in df_train.columns if col != columna_target]
+            tab_lotes, tab_vivo = st.tabs(["📁 Predicción Masiva (Subir Archivos)", "🎛️ Simulador en Vivo"])
+
+            # ---------------------------------------------------------
+            # PESTAÑA 1: PREDICCIÓN POR LOTES
+            # ---------------------------------------------------------
+            with tab_lotes:
+                st.markdown("### 📥 Predicciones en Bloque")
+                archivo_nuevo = st.file_uploader("Sube los nuevos clientes/datos:", type=["csv", "xlsx", "parquet"], key="uploader_simulador")
                 
-                if len(df_nuevo.columns) == 1:
-                    archivo_nuevo.seek(0)
-                    df_nuevo = pd.read_csv(archivo_nuevo, sep=';')
+                if archivo_nuevo:
+
+                    df_nuevo = data_service.leer_dataset_universal(archivo_nuevo)
                     
-                st.write("**Vista previa de los datos subidos:**")
-                st.dataframe(df_nuevo.head(3))
-                
+                    if df_nuevo is not None:
 
-                st.markdown("#### 🛡️ Configuración")
-                st.write("Selecciona qué columna identifica a cada fila de forma única (Ej: ID_Pasajero, Nombre). Esta columna NO se usará para predecir, pero se pegará al resultado.")
+                        if columna_target in df_nuevo.columns:
+                            df_nuevo = df_nuevo.drop(columns=[columna_target])
+                            st.toast("🛡️ Se ha eliminado la columna objetivo del archivo para evitar errores.", icon="✅")
+
+                        st.write("**Vista previa de los datos limpios:**")
+                        st.dataframe(df_nuevo.head(5))
+
+                        st.markdown("#### ⚙️ Configuración Opcional")
+                        columna_id = st.selectbox("¿Hay alguna columna de Identidad (ID/Nombre)?", ["Ninguna"] + df_nuevo.columns.tolist(), 
+                                                  help="Seleccione la columna que le permita diferenciar las diferentes líneas.")
+                        
+                        if st.button("🚀 Ejecutar Predicción Masiva", type="primary"):
+                            try:
+                                df_procesar = df_nuevo.copy()
+                                
+                                caja_fuerte_ids = None
+                                if columna_id != "Ninguna":
+                                    caja_fuerte_ids = df_procesar[columna_id].copy()
+                                
+                                # Filtramos solo las columnas que el modelo conoce
+                                df_limpio = df_procesar.reindex(columns=columnas_entrenamiento)
+                                
+                                # Traducción y Nulos
+                                traductores = resultados['traductores_X']
+                                for col in df_limpio.columns:
+                                    if col in traductores:
+                                        clase_por_defecto = traductores[col].classes_[0]
+                                        df_limpio[col] = df_limpio[col].fillna(clase_por_defecto).astype(str)
+                                        df_limpio[col] = traductores[col].transform(df_limpio[col])
+                                    else:
+                                        df_limpio[col] = pd.to_numeric(df_limpio[col], errors='coerce').fillna(0)
+
+                                # Escalado Matemático
+                                escalador = resultados.get('escalador')
+                                if escalador:
+                                    X_final = escalador.transform(df_limpio)
+                                else:
+                                    X_final = df_limpio
+
+                                # Predicción
+                                modelo = resultados['ganador_modelo']
+                                predicciones_crudas = modelo.predict(X_final)
+                                
+                                traductor_y = resultados.get('traductor_y')
+                                if traductor_y is not None:
+                                    predicciones_legibles = traductor_y.inverse_transform(predicciones_crudas)
+                                else:
+                                    predicciones_legibles = predicciones_crudas
+                                    
+                                # Empaquetado
+                                df_final = pd.DataFrame()
+                                if caja_fuerte_ids is not None:
+                                    df_final[columna_id] = caja_fuerte_ids
+                                df_final['Predicción_IA'] = predicciones_legibles
+                                
+                                st.success("✅ ¡Predicciones masivas completadas con éxito!")
+                                st.dataframe(df_final, use_container_width=True)
+                                
+                                # Descarga
+                                csv_final = df_final.to_csv(index=False).encode('utf-8')
+                                st.download_button(label="💾 Descargar Resultados (.csv)", data=csv_final, file_name="predicciones_lote.csv", mime="text/csv")
+
+                            except Exception as e:
+                                st.error(f"⚠️ Error procesando los datos. Asegúrate de que las columnas coinciden. Detalle: {e}")
+
+            # ---------------------------------------------------------
+            # PESTAÑA 2: SIMULADOR EN VIVO
+            # ---------------------------------------------------------
+            with tab_vivo:
+                st.markdown("### 🎛️ Simulador")
+                st.info("Ajusta los valores para predecir un único caso en tiempo real. Los límites se generan dinámicamente según lo que aprendió la IA.")
                 
-                columna_id = st.selectbox("Columna de Identidad (ID/Nombre):", ["Ninguna (No me importa)"] + df_nuevo.columns.tolist())
-                
-                if st.button("🚀 Ejecutar", type="primary"):
-                    try:
-                        df_procesar = df_nuevo.copy()
-                        
-                        caja_fuerte_ids = None
-                        if columna_id != "Ninguna (No me importa)":
-                            caja_fuerte_ids = df_procesar[columna_id].copy()
-                        
-                        columnas_entrenamiento = st.session_state['columnas_entrenamiento']
-                        df_limpio = df_procesar.reindex(columns=columnas_entrenamiento)
-                        
-                        # 3. TRADUCCIÓN Y RELLENO DE NULOS
-                        traductores = resultados['traductores_X']
-                        for col in df_limpio.columns:
-                            if col in traductores:
-                                clase_por_defecto = traductores[col].classes_[0]
-                                df_limpio[col] = df_limpio[col].fillna(clase_por_defecto).astype(str)
-                                df_limpio[col] = traductores[col].transform(df_limpio[col])
+                with st.form("form_simulador"):
+                    columnas_ui = st.columns(3)
+                    input_usuario = {}
+                    
+                    for idx, col in enumerate(columnas_entrenamiento):
+                        with columnas_ui[idx % 3]:
+                            if df_train[col].dtype in ['int64', 'float64']:
+                                v_min = float(df_train[col].min())
+                                v_max = float(df_train[col].max())
+                                v_mean = float(df_train[col].mean())
+
+                                # Evitar error si el min y max son iguales
+                                if v_min == v_max:
+                                    input_usuario[col] = st.number_input(f"{col}", value=v_min)
+                                else:
+                                    input_usuario[col] = st.slider(f"{col}", min_value=v_min, max_value=v_max, value=v_mean)
+
                             else:
-                                df_limpio[col] = df_limpio[col].fillna(0)
-
+                                opciones = df_train[col].dropna().unique().tolist()
+                                input_usuario[col] = st.selectbox(f"{col}", options=opciones)
+                                
+                    submit_simulacion = st.form_submit_button("🔮 Predecir este caso", type="primary", use_container_width=True)
+                    
+                if submit_simulacion:
+                    try:
+                        # Convertimos el dict del usuario a DataFrame de 1 fila
+                        df_sim = pd.DataFrame([input_usuario])
+                        
+                        # Aplicamos traductores
+                        traductores = resultados['traductores_X']
+                        for col in df_sim.columns:
+                            if col in traductores:
+                                df_sim[col] = traductores[col].transform(df_sim[col].astype(str))
+                                
+                        # Aplicamos escalador
                         escalador = resultados.get('escalador')
-                        if escalador:
-                            X_final_matematico = escalador.transform(df_limpio)
-                        else:
-                            X_final_matematico = df_limpio
-
+                        X_sim = escalador.transform(df_sim) if escalador else df_sim
+                        
+                        # Predecimos
                         modelo = resultados['ganador_modelo']
-                        predicciones_crudas = modelo.predict(X_final_matematico)
+                        pred_cruda = modelo.predict(X_sim)
                         
                         traductor_y = resultados.get('traductor_y')
-                        if traductor_y is not None:
-                            predicciones_legibles = traductor_y.inverse_transform(predicciones_crudas)
-                        else:
-                            predicciones_legibles = predicciones_crudas
-                            
-                        df_final = pd.DataFrame()
-                        if caja_fuerte_ids is not None:
-                            df_final[columna_id] = caja_fuerte_ids
-                            
-                        df_final['Predicción_IA'] = predicciones_legibles
+                        pred_legible = traductor_y.inverse_transform(pred_cruda)[0] if traductor_y else pred_cruda[0]
                         
-                        st.success("✅ ¡Predicciones completadas con éxito!")
-                        st.dataframe(df_final, use_container_width=True)
+                        st.divider()
+                        st.markdown(f"<h2 style='text-align: center; color: #4CAF50;'>Resultado: {pred_legible}</h2>", unsafe_allow_html=True)
                         
-                            
-                        # 7. EXPORTACIÓN
-                        csv_final = df_final.to_csv(index=False).encode('utf-8')
-                        st.download_button(
-                            label="💾 Descargar Resultados (.csv)",
-                            data=csv_final,
-                            file_name="predicciones_IA_resultados.csv",
-                            mime="text/csv",
-                        )
-
                     except Exception as e:
-                        st.error(f"⚠️ Hubo un error procesando los datos. Asegúrate de que las columnas coinciden exactamente con el entrenamiento. Error técnico: {e}")
+                        st.error(f"Error en la simulación: {e}")
+
+        # --- NAVEGACIÓN ---
+        st.divider()
+        st.markdown("### 🧭 Navegación")
+        col_back, col_reset = st.columns(2)
+        
+        with col_back:
+            if st.button("⬅️ Volver a los Resultados (Fase 4)", use_container_width=True):
+                st.session_state['fase_actual'] = 4
+                st.rerun()
+                
+        with col_reset:
+            if st.button("🔄 Empezar un Proyecto Nuevo (Ir a Fase 1)", type="secondary", use_container_width=True):
+                for key in list(st.session_state.keys()):
+                    if key != 'fase_actual':
+                        del st.session_state[key]
+                st.session_state['fase_actual'] = 1
+                st.rerun()
