@@ -120,7 +120,7 @@ def interpretar_grupos(df_centroides, modelo=MODELO_DEFAULT):
 
 
 
-def generar_reporte_clustering(df_perfiles, modelo="llama-3.1-70b-versatile"):
+def generar_reporte_clustering(df_perfiles, modelo=MODELO_DEFAULT):
     """
     Lee los promedios matemáticos de los clusters y redacta un informe ejecutivo.
     Utiliza el cliente_ia ya definido globalmente en este script.
