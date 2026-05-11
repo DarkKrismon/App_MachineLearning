@@ -158,8 +158,7 @@ def generar_reporte_clustering(df_perfiles, modelo=MODELO_DEFAULT):
                 {'role': 'user', 'content': prompt_usuario}
             ],
             model=modelo,
-            temperature=0.7,
-            max_tokens=1500
+            temperature=0.7
         )
         return respuesta.choices[0].message.content
     except Exception as e:
