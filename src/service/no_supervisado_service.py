@@ -1,58 +1,121 @@
-import streamlit as st
 import pandas as pd
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
+import numpy as np
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.cluster import KMeans, AgglomerativeClustering
 from sklearn.decomposition import PCA
+from sklearn.metrics import silhouette_score
 
-''' 
-Encargado de las funciones para la Fase 4
-del modelo No Supervisado.
-Funciones que reciben y devuelven valores listos.
-'''
+def preprocesar_datos_clustering(df):
+    """
+    Convierte todo el texto en números de forma segura y escala matemáticamente.
+    K-Means es ciego si no escalamos los datos (un salario de 50.000 aplastaría a una edad de 40).
+    """
+    df_procesado = df.copy()
+    traductores = {}
+    
+    # 1. Label Encoding para todo lo que no sea numérico
+    for col in df_procesado.columns:
+        if df_procesado[col].dtype in ['object', 'string', 'category', 'bool']:
+            le = LabelEncoder()
+            df_procesado[col] = le.fit_transform(df_procesado[col].astype(str))
+            traductores[col] = le
+            
+    # 2. Escalado Estándar (Vital para distancias euclidianas)
+    scaler = StandardScaler()
+    datos_escalados = scaler.fit_transform(df_procesado)
+    
+    return datos_escalados, scaler, traductores
 
-def preparar_datos_clustering(df, columnas):
-    """Escala los datos porque K-Means es súper sensible a las magnitudes."""
-    try:
-        df_filtrado = df[columnas].dropna().copy()
-        scaler = StandardScaler()
-        datos_escalados = scaler.fit_transform(df_filtrado)
-        return df_filtrado, datos_escalados, scaler
-    except ValueError as e:
-        st.error("🚨 Error matemático: Has seleccionado una columna que contiene texto o formatos no numéricos. K-Means solo acepta números.")
-        st.stop()
 
-def calcular_codo(datos_escalados, max_clusters=10):
-    """Ejecuta K-Means múltiples veces para encontrar el número ideal de grupos."""
+def escanear_mejores_k(datos_escalados, max_k=10):
+    """
+    Prueba múltiples agrupaciones y devuelve las métricas matemáticas 
+    para que el usuario no tenga que adivinar cuántos clusters crear.
+    """
+    max_k = min(max_k, len(datos_escalados) - 1)
+    k_values = range(2, max_k + 1)
+    
     inercia = []
-    rango = range(2, max_clusters + 1)
-    for k in rango:
+    silueta = []
+    
+    for k in k_values:
         kmeans = KMeans(n_clusters=k, random_state=42, n_init='auto')
-        kmeans.fit(datos_escalados)
+        etiquetas = kmeans.fit_predict(datos_escalados)
         inercia.append(kmeans.inertia_)
-    return list(rango), inercia
-
-def ejecutar_clustering(df_original, datos_escalados, n_clusters):
-    """Aplica K-Means definitivo y devuelve el dataset con la nueva columna."""
-    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init='auto')
-    tribus = kmeans.fit_predict(datos_escalados)
+        silueta.append(silhouette_score(datos_escalados, etiquetas))
+        
+    # El K ideal suele tener el mayor silhouette_score
+    mejor_k = k_values[np.argmax(silueta)]
     
-    df_resultado = df_original.copy()
-    df_resultado['Tribu'] = tribus
-    df_resultado['Tribu'] = df_resultado['Tribu'].astype(str) # Lo pasamos a texto para los colores de los gráficos
-    return df_resultado, kmeans
+    return {
+        "k_values": list(k_values),
+        "inercia": inercia,
+        "silueta": silueta,
+        "mejor_k_recomendado": mejor_k
+    }
 
-def aplicar_pca_2d(datos_escalados, tribus):
-    """Aplasta las dimensiones a 2D (X e Y) para poder dibujarlas en la pantalla. PCA"""
-    pca = PCA(n_components=2)
-    componentes = pca.fit_transform(datos_escalados)
-    
-    df_pca = pd.DataFrame(data=componentes, columns=['Componente_X', 'Componente_Y'])
-    df_pca['Tribu'] = tribus.astype(str)
-    
-    varianza_explicada = sum(pca.explained_variance_ratio_) * 100
-    return df_pca, varianza_explicada
 
-def obtener_centroides_radar(df_resultado, columnas):
-    """Calcula la media de cada variable por Tribu para dibujar el Radar."""
-    perfiles = df_resultado.groupby('Tribu')[columnas].mean().reset_index()
-    return perfiles
+def entrenar_clustering_3d(df, num_clusters, algoritmo="K-Means"):
+    """
+    Entrena el modelo definitivo (K-Means o Jerárquico) y comprime la realidad a 3 dimensiones 
+    para poder dibujarla en un gráfico 3D interactivo.
+    """
+    from sklearn.cluster import KMeans, AgglomerativeClustering
+    from sklearn.decomposition import PCA
+    from sklearn.metrics import silhouette_score
+    
+    datos_escalados, scaler, traductores = preprocesar_datos_clustering(df)
+    
+    # Elección del Algoritmo
+    if algoritmo == "K-Means":
+        modelo = KMeans(n_clusters=num_clusters, random_state=42, n_init=10)
+        clusters = modelo.fit_predict(datos_escalados)
+    elif algoritmo == "Clustering Jerárquico":
+        modelo = AgglomerativeClustering(n_clusters=num_clusters)
+        clusters = modelo.fit_predict(datos_escalados)
+    else:
+        raise ValueError("Algoritmo no soportado")
+    
+    # Evaluar calidad
+    calidad = silhouette_score(datos_escalados, clusters)
+    
+    # Reducir a 3 dimensiones para la visualización
+    pca = PCA(n_components=3)
+    datos_3d = pca.fit_transform(datos_escalados)
+    varianza_explicada = pca.explained_variance_ratio_.sum() * 100
+    
+    df_resultados = df.copy()
+    df_resultados['Cluster'] = clusters
+    df_resultados['PCA_X'] = datos_3d[:, 0]
+    df_resultados['PCA_Y'] = datos_3d[:, 1]
+    df_resultados['PCA_Z'] = datos_3d[:, 2]
+    
+    return {
+        "df_con_clusters": df_resultados,
+        "modelo_usado": modelo,
+        "nombre_algoritmo": algoritmo,
+        "calidad_silueta": calidad,
+        "varianza_pca": varianza_explicada,
+        "scaler": scaler,
+        "traductores": traductores
+    }
+
+
+def obtener_perfil_clusters(df_con_clusters):
+    """
+    Calcula la media (o la moda para texto) de cada variable dentro de cada cluster.
+    Esto permite a la IA de Negocio explicar qué hace único a cada grupo.
+    """
+    columnas_analisis = [c for c in df_con_clusters.columns if c not in ['Cluster', 'PCA_X', 'PCA_Y', 'PCA_Z']]
+    
+    def calcular_perfil(x):
+        # Usamos la API oficial de Pandas para saber si es puramente matemático
+        if pd.api.types.is_numeric_dtype(x):
+            return x.mean()
+        # Para todo lo demás (textos, categorías, fechas), cogemos el más repetido
+        else:
+            return x.mode()[0] if not x.mode().empty else "Desconocido"
+
+    resumen = df_con_clusters.groupby('Cluster')[columnas_analisis].agg(calcular_perfil).reset_index()
+    
+    return resumen

@@ -90,8 +90,7 @@ def renderizar_fase_procesado():
         )
         
         if "Predecir" in ruta:
-            st.info("Has elegido la ruta predictiva. Para evitar Data Leakage, debemos separar los datos de train y test antes de limpiar los datos.", 
-                    help="Evitar Data Leakage nos permite obtener mejores resultados de predicción.")
+            st.info("Has elegido la ruta predictiva. Para evitar Data Leakage, debemos separar los datos de train y test antes de limpiar los datos.")
             
             columna_target = st.selectbox("Selecciona la Columna Objetivo (La que quieres predecir):", df_actual.columns)
             
@@ -124,8 +123,7 @@ def renderizar_fase_procesado():
                 except Exception as e:
                     st.error(f"Error crítico al cortar los datos: {e}")
         else:
-            st.info("Has elegido descubrir patrones. Como no hay un examen final, la IA analizará el 100% de los datos.", 
-                    help="El sistema cogerá todos los datos después de su limpieza.")
+            st.info("Has elegido descubrir patrones. Como no hay un examen final, la IA analizará el 100% de los datos.")
             
             if st.button("🚀 Avanzar a Limpieza", type="primary"):
                 st.session_state['ruta_elegida'] = 'no_supervisado'

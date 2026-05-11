@@ -1,111 +1,159 @@
 import streamlit as st
+import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 from service import no_supervisado_service
 import ia_client
 
-''' 
-Encargado visual de la fase 3 y 4 de modelo NO Supervisado 
-llamando a la función "renderizar_fase_no_supervisada""
-'''
-
 def renderizar_fase_no_supervisada():
-    st.title("🌌 Fase 3: Descubrimiento de Grupos (Clustering)")
-    st.info("Bienvenido al entorno No Supervisado. Aquí no hay respuestas correctas, solo agrupaciones matemáticas.")
-
-    if 'analisis_ia_tribus' not in st.session_state:
-        st.session_state['analisis_ia_tribus'] = None
-
-    if 'df_limpio' in st.session_state:
-        df_actual = st.session_state['df_limpio']
-    else:
-        df_actual = st.session_state['dataframes'].get("dataset_unificado.csv", list(st.session_state['dataframes'].values())[0])
+    fase = st.session_state.get('fase_actual', 3)
     
-    cols_num = df_actual.select_dtypes(include=['int64', 'float64']).columns.tolist()
+    # Asegurarnos de que tenemos datos limpios (se asume que df_entero ya pasó por limpieza)
+    df_actual = st.session_state.get('df_entero')
     
-    if len(cols_num) < 2:
-        st.error("❌ Necesitas al menos 2 variables numéricas en el dataset para buscar patrones.")
+    if df_actual is None:
+        st.error("🚨 No se ha encontrado el dataset. Vuelve a la Fase 1.")
         return
 
-    st.markdown("### 1. Selección de Variables")
-    st.write("¿Qué características quieres que mire la IA para crear las agrupaciones?")
-    cols_elegidas = st.multiselect("Variables clave:", cols_num, default=cols_num[:3])
+    # ==========================================
+    #                 FASE 3
+    # ==========================================
+    if fase == 3:
+        st.title("⚙️ Fase 3: Ruta No Supervisada (Clustering)")
+        st.markdown("### 1. Diagnóstico Algorítmico")
+        st.info("Antes de que elijas a ciegas, la IA ha escaneado tus datos buscando la agrupación matemática perfecta usando el *Silhouette Score*.")
 
-    if len(cols_elegidas) >= 2:
-        df_base, datos_escalados, scaler = no_supervisado_service.preparar_datos_clustering(df_actual, cols_elegidas)
-        
+        # Calculamos los datos escalados y escaneamos la mejor K en segundo plano
+        if 'datos_escalados' not in st.session_state:
+            with st.spinner("Escaneando el tejido matemático de tus datos..."):
+                datos_escalados, scaler, traductores = no_supervisado_service.preprocesar_datos_clustering(df_actual)
+                analisis = no_supervisado_service.escanear_mejores_k(datos_escalados)
+                
+                # Guardamos para no recalcular
+                st.session_state['datos_escalados'] = datos_escalados
+                st.session_state['analisis_k'] = analisis
+                st.session_state['ns_scaler'] = scaler
+                st.session_state['ns_traductores'] = traductores
+
+        analisis = st.session_state['analisis_k']
+        mejor_k = analisis['mejor_k_recomendado']
+
+        # Mostramos los resultados del escáner visualmente
+        col_res1, col_res2 = st.columns([1, 2])
+        with col_res1:
+            st.metric("Grupos (Clusters) Recomendados", value=mejor_k, delta="Matemáticamente Óptimo", delta_color="normal")
+            st.write("La IA sugiere crear esta cantidad de tribus porque es donde los datos están más cohesionados sin mezclarse entre sí.")
+            
+        with col_res2:
+            # Gráfico de codo/silueta para que los técnicos vean por qué
+            df_metricas = pd.DataFrame({
+                'Número de Clusters (K)': analisis['k_values'],
+                'Calidad (Silhouette)': analisis['silueta']
+            })
+            fig_scan = px.line(df_metricas, x='Número de Clusters (K)', y='Calidad (Silhouette)', markers=True, 
+                               title="Curva de Calidad de Agrupación")
+            # Marcamos el punto óptimo
+            fig_scan.add_scatter(x=[mejor_k], y=[df_metricas.loc[df_metricas['Número de Clusters (K)'] == mejor_k, 'Calidad (Silhouette)'].values[0]], 
+                                 mode='markers', marker=dict(color='red', size=15), name="Recomendado")
+            st.plotly_chart(fig_scan, use_container_width=True)
+
         st.divider()
-        st.markdown("### 2. El Dilema del Codo (Buscando el número ideal)")
-        col_grafico, col_texto = st.columns([2, 1])
+
+        st.markdown("### 2. Configuración Final y Entrenamiento")
+        st.write("Puedes aceptar la sugerencia de la IA o forzar un número distinto si el negocio te lo exige (ej: necesitas 3 tarifas para clientes).")
         
-        with col_texto:
-            st.write("La gráfica de la izquierda muestra la 'Inercia' (el caos dentro de los grupos).")
-            st.write("👉 **Busca el 'Codo':** El punto donde la caída de la línea empieza a suavizarse. Ese es el número matemático ideal de tribus.")
-            n_clusters = st.slider("Selecciona el número de Tribus:", min_value=2, max_value=10, value=3)
+        num_clusters = st.slider("Selecciona el número de Tribus (Clusters) a generar:", 
+                                 min_value=2, max_value=10, value=mejor_k)
+        
+        # --- NUEVO SELECTOR DE ALGORITMO ---
+        algoritmo_elegido = st.radio("Selecciona el motor matemático:", 
+                                     ["K-Means", "Clustering Jerárquico"], 
+                                     horizontal=True,
+                                     help="K-Means es rapidísimo y busca centros geométricos. Jerárquico va fusionando vecinos desde abajo hacia arriba (mejor para formas complejas).")
 
-        with col_grafico:
-            rango_k, inercias = no_supervisado_service.calcular_codo(datos_escalados)
-            fig_codo = px.line(x=rango_k, y=inercias, markers=True, title="Gráfico del Codo", labels={'x':'Número de Tribus (k)', 'y':'Inercia / Caos'})
-            st.plotly_chart(fig_codo, use_container_width=True)
-
-        btn_entrenar = st.button("🚀 Ejecutar Agrupación K-Means", type="primary")
-        if btn_entrenar:
-            st.session_state['clustering_calculado'] = True
-            st.session_state['analisis_ia_tribus'] = None
-            
-            df_tribus, modelo_kmeans = no_supervisado_service.ejecutar_clustering(df_base, datos_escalados, n_clusters)
-            st.session_state['df_tribus'] = df_tribus
-            st.session_state['perfiles_tribus'] = no_supervisado_service.obtener_centroides_radar(df_tribus, cols_elegidas)
-            st.session_state['n_clusters_guardado'] = n_clusters
-
-        if st.session_state.get('clustering_calculado', False):
-            st.divider()
-            
-            df_tribus = st.session_state['df_tribus']
-            perfiles = st.session_state['perfiles_tribus']
-            st.session_state['n_clusters_guardado']
-
-            st.markdown(f"### 3. Resultados")
-            
-            tab_mapa, tab_perfiles = st.tabs(["🗺️ Mapa de Territorios (PCA)", "🕸️ Radiografía de Tribus (Radar)"])
-            
-            with tab_mapa:
-                st.write("Hemos aplastado tus variables a 2 dimensiones (X e Y) usando PCA para que puedas ver la separación entre grupos.")
-                df_pca, varianza = no_supervisado_service.aplicar_pca_2d(datos_escalados, df_tribus['Tribu'])
-                fig_pca = px.scatter(df_pca, x='Componente_X', y='Componente_Y', color='Tribu', title=f"Mapa PCA (Varianza conservada: {varianza:.1f}%)")
-                st.plotly_chart(fig_pca, use_container_width=True)
-                
-            with tab_perfiles:
-                st.write("Este gráfico muestra el valor promedio de cada variable para cada grupo.")
-                
-                fig_radar = go.Figure()
-                for i, fila in perfiles.iterrows():
-                    fig_radar.add_trace(go.Scatterpolar(
-                        r=fila[cols_elegidas].values,
-                        theta=cols_elegidas,
-                        fill='toself',
-                        name=f"Tribu {fila['Tribu']}"
-                    ))
-                fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True)), showlegend=True)
-                st.plotly_chart(fig_radar, use_container_width=True)
-
-                st.write("**Datos Crudos (Media de cada Tribu):**")
-                st.dataframe(perfiles.set_index('Tribu'), use_container_width=True)
-
-            # --- SECCIÓN DE INTELIGENCIA ARTIFICIAL ---
-            st.divider()
-            st.markdown("### 4. Análisis Sociológico con Inteligencia Artificial")
-            st.info("¿Los números crudos no te dicen nada? Deja que nuestra IA lea la tabla y le ponga cara y ojos a cada Tribu.")
-            
-            if st.button("✨ Generar Lectura de los Grupos", type="primary", use_container_width=True):
-                with st.spinner("Groq (Llama 3.1) está analizando los centroides y escribiendo el reporte..."):
-                    st.session_state['analisis_ia_tribus'] = ia_client.interpretar_grupos(perfiles)
+        if st.button("🚀 Iniciar Entrenamiento", type="primary", use_container_width=True):
+            with st.spinner(f"Entrenando {algoritmo_elegido} con {num_clusters} clusters..."):
+                try:
+                    # Fíjate que llamamos a la nueva función y le pasamos el algoritmo
+                    resultados = no_supervisado_service.entrenar_clustering_3d(df_actual, num_clusters, algoritmo_elegido)
+                    st.session_state['resultados_ns'] = resultados
+                    st.session_state['fase_actual'] = 4
+                    st.success("¡Entrenamiento completado!")
                     st.rerun()
+                except Exception as e:
+                    st.error(f"Error durante el entrenamiento: {e}")
 
-            if st.session_state['analisis_ia_tribus']:
-                st.success("¡Análisis completado!")
-                st.markdown(st.session_state['analisis_ia_tribus'])
-                    
-                if st.button("🗑️ Borrar Análisis"):
-                    st.session_state['analisis_ia_tribus'] = None
-                    st.rerun()
+    # ==========================================
+    #                 FASE 4
+    # ==========================================
+    elif fase == 4:
+        st.title("🌌 Fase 4: Observatorio 3D y Perfiles")
+        
+        resultados = st.session_state.get('resultados_ns')
+        if not resultados:
+            st.error("No hay resultados de entrenamiento. Vuelve a la Fase 3.")
+            return
+
+        df_clusters = resultados['df_con_clusters']
+        calidad = resultados['calidad_silueta']
+        var_pca = resultados['varianza_pca']
+
+        # 1. KPIs
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Modelo Usado", "K-Means")
+        c2.metric("Calidad de Agrupación", f"{calidad:.2f}", help="De -1 a 1. Valores cercanos a 1 significan grupos muy bien definidos.")
+        c3.metric("Datos retenidos en el 3D", f"{var_pca:.1f}%", help="Al aplastar tus datos a 3 dimensiones para dibujarlos, este es el porcentaje de realidad que sobrevive.")
+
+        st.divider()
+
+        tab_galaxia, tab_perfiles = st.tabs(["🔭 La Galaxia de Datos (3D)", "👔 Perfiles de Tribus (Negocio)"])
+
+        # --- Pestaña 1: El Universo 3D ---
+        with tab_galaxia:
+            st.subheader("Mapa Tridimensional de Agrupaciones (PCA)")
+            st.info("💡 Rota el gráfico con el ratón. Cada punto es una fila de tu Excel. Los colores muestran las tribus que la IA ha descubierto.")
+            
+            fig_3d = px.scatter_3d(
+                df_clusters, x='PCA_X', y='PCA_Y', z='PCA_Z',
+                color='Cluster', opacity=0.7, color_continuous_scale='Turbo'
+            )
+            fig_3d.update_layout(margin=dict(l=0, r=0, b=0, t=0))
+            st.plotly_chart(fig_3d, use_container_width=True)
+
+        # --- Pestaña 2: Perfiles para Negocio ---
+        with tab_perfiles:
+            st.subheader("¿Qué define a cada Tribu?")
+            st.info("💡 Estos son los promedios matemáticos de cada grupo. Usa la IA para traducirlos a estrategias de negocio.")
+            
+            perfiles = no_supervisado_service.obtener_perfil_clusters(df_clusters)
+            st.dataframe(perfiles.style.background_gradient(cmap='Blues'), use_container_width=True)
+            
+            st.divider()
+            if st.button("🧠 Pedir a la IA que Bautice a las Tribus", type="primary"):
+                with st.spinner("La IA está analizando los perfiles y redactando la estrategia..."):
+                    reporte_tribus = ia_client.generar_reporte_clustering(perfiles)
+                    st.success("¡Análisis completado!")
+                    st.markdown(reporte_tribus)
+
+        st.divider()
+
+        # Opciones de salida
+        st.markdown("### 📥 Siguiente Paso")
+        
+        # Preparar CSV para descarga
+        csv_final = df_clusters.drop(columns=['PCA_X', 'PCA_Y', 'PCA_Z']).to_csv(index=False).encode('utf-8')
+        
+        col_down, col_reset = st.columns(2)
+        with col_down:
+            st.download_button(
+                label="💾 Descargar Dataset con Clusters Asignados",
+                data=csv_final,
+                file_name="dataset_agrupado.csv",
+                mime="text/csv",
+                use_container_width=True,
+                type="primary"
+            )
+        
+        with col_reset:
+            if st.button("🔄 Volver a intentar (Ir a Fase 3)", use_container_width=True):
+                st.session_state['fase_actual'] = 3
+                st.rerun()

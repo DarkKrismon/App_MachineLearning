@@ -117,3 +117,50 @@ def interpretar_grupos(df_centroides, modelo=MODELO_DEFAULT):
         return respuesta.choices[0].message.content
     except Exception as e:
         return f"🚨 Error al interpretar las tribus: {e}"
+
+
+
+def generar_reporte_clustering(df_perfiles, modelo="llama-3.1-70b-versatile"):
+    """
+    Lee los promedios matemáticos de los clusters y redacta un informe ejecutivo.
+    Utiliza el cliente_ia ya definido globalmente en este script.
+    """
+    if not cliente_ia:
+        return "🚨 Error: No se ha configurado la API Key de Groq en los secretos de Streamlit."
+
+    # Convertimos el DataFrame a texto estructurado para que la IA lo entienda
+    perfiles_texto = df_perfiles.to_string(index=False)
+    
+    prompt_sistema = """
+    Eres un Consultor Estratégico de Datos de alto nivel. He aplicado un modelo de Machine Learning No Supervisado 
+    y he encontrado distintos grupos (Clusters) en mis datos.
+    Tu misión es traducir los números fríos en perfiles sociológicos y estrategias de negocio.
+    """
+    
+    prompt_usuario = f"""
+    Aquí tienes los valores promedios (o la moda) de cada variable para cada grupo descubierto:
+    
+    {perfiles_texto}
+    
+    Por favor, redacta un informe ejecutivo estructurado con lo siguiente:
+    1. Bautiza a cada Cluster con un nombre comercial y llamativo (Ej: "Los Ahorradores Cautelosos", "Los Fieles VIP", etc).
+    2. Describe en una frase qué hace único a ese grupo basándote en sus números.
+    3. Da 1 recomendación de negocio accionable o estrategia para ese grupo en concreto.
+    
+    Usa formato Markdown (negritas, listas). Sé directo, profesional e inspirador. No expliques qué es el clustering.
+    """
+    
+    try:
+        # Usamos cliente_ia que es tu variable definida al inicio del script
+        respuesta = cliente_ia.chat.completions.create(
+            messages=[
+                {'role': 'system', 'content': prompt_sistema},
+                {'role': 'user', 'content': prompt_usuario}
+            ],
+            model=modelo,
+            temperature=0.7,
+            max_tokens=1500
+        )
+        return respuesta.choices[0].message.content
+    except Exception as e:
+        return f"❌ Error al generar el reporte con Groq: {e}"

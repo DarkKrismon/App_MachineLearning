@@ -1,13 +1,6 @@
 import streamlit as st
 from modulos import ingesta_ui, procesado_ui
 
-'''
-Función Main encargada de administrar el cambio de fases dentro de la aplicación.
-Ejecución por consola:
-
-streamlit run main.py
-'''
-
 def main():
     st.set_page_config(page_title="Machine-Learning", page_icon="🤖", layout="wide")
 
