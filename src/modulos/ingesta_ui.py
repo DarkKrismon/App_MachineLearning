@@ -3,11 +3,19 @@ import service.data_service as data_service
 import ia_client
 from utils import generador_titanic
 
-''' 
-Fase 1, ingesta de datos por parte del usuario y generación de datos sintéticos.
-'''
+"""
+Módulo de la Interfaz de Usuario para la Fase 1 (Ingesta de Datos).
+Permite al usuario cargar archivos locales (CSV, Excel, Parquet) o inyectar 
+datasets de prueba (Titanic/California) para arrancar el pipeline de Machine Learning.
+"""
 
-def renderizar_fase_ingesta():
+def renderizar_fase_ingesta() -> None:
+    """
+    Renderiza visualmente toda la página de la Fase 1 en Streamlit.
+    Gestiona los botones de datos de demostración, el área para subir archivos 
+    y la llamada inicial a Groq para generar el diagnóstico base.
+    """
+    
     st.title("📊 Fase 1: Ingesta y Diagnóstico")
     st.markdown("En esta página encontrarás un proceso completo dividido en fases de un proyecto de Machine Learning guiado. "\
     "Este proyecto consta tanto de un modelo **Supervisado** como de un modelo **No Supervisado**.")

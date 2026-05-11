@@ -1,13 +1,26 @@
+"""
+Módulo de la Interfaz de Usuario para la Ruta No Supervisada (Clustering).
+Controla el flujo visual de las Fases 3, 4 y 5, permitiendo entrenar algoritmos 
+(K-Means, Jerárquico), visualizar un universo de datos en 3D interactivo y 
+clasificar nuevos individuos en las tribus generadas.
+"""
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 from service import no_supervisado_service
 import ia_client
 
-def renderizar_fase_no_supervisada():
-    fase = st.session_state.get('fase_actual', 3)
+def renderizar_fase_no_supervisada() -> None:
+    """
+    Renderiza visualmente el pipeline completo del aprendizaje no supervisado.
+    Controla la Fase 3 (Escáner del Silhouette Score y selección de algoritmo),
+    la Fase 4 (Gráfico 3D espacial y perfiles de tribus con IA) y
+    la Fase 5 (Predicciones masivas vía CSV y simulador de nuevos clientes).
+    """
     
-    # Asegurarnos de que tenemos datos limpios (se asume que df_entero ya pasó por limpieza)
+    fase = st.session_state.get('fase_actual', 3)
+
     df_actual = st.session_state.get('df_entero')
     
     if df_actual is None:
@@ -22,13 +35,11 @@ def renderizar_fase_no_supervisada():
         st.markdown("### 1. Diagnóstico Algorítmico")
         st.info("Antes de que elijas a ciegas, la IA ha escaneado tus datos buscando la agrupación matemática perfecta usando el *Silhouette Score*.")
 
-        # Calculamos los datos escalados y escaneamos la mejor K en segundo plano
         if 'datos_escalados' not in st.session_state:
             with st.spinner("Escaneando el tejido matemático de tus datos..."):
                 datos_escalados, scaler, traductores = no_supervisado_service.preprocesar_datos_clustering(df_actual)
                 analisis = no_supervisado_service.escanear_mejores_k(datos_escalados)
                 
-                # Guardamos para no recalcular
                 st.session_state['datos_escalados'] = datos_escalados
                 st.session_state['analisis_k'] = analisis
                 st.session_state['ns_scaler'] = scaler
@@ -37,21 +48,19 @@ def renderizar_fase_no_supervisada():
         analisis = st.session_state['analisis_k']
         mejor_k = analisis['mejor_k_recomendado']
 
-        # Mostramos los resultados del escáner visualmente
         col_res1, col_res2 = st.columns([1, 2])
         with col_res1:
             st.metric("Grupos (Clusters) Recomendados", value=mejor_k, delta="Matemáticamente Óptimo", delta_color="normal")
             st.write("La IA sugiere crear esta cantidad de tribus porque es donde los datos están más cohesionados sin mezclarse entre sí.")
             
         with col_res2:
-            # Gráfico de codo/silueta para que los técnicos vean por qué
             df_metricas = pd.DataFrame({
                 'Número de Clusters (K)': analisis['k_values'],
                 'Calidad (Silhouette)': analisis['silueta']
             })
             fig_scan = px.line(df_metricas, x='Número de Clusters (K)', y='Calidad (Silhouette)', markers=True, 
                                title="Curva de Calidad de Agrupación")
-            # Marcamos el punto óptimo
+
             fig_scan.add_scatter(x=[mejor_k], y=[df_metricas.loc[df_metricas['Número de Clusters (K)'] == mejor_k, 'Calidad (Silhouette)'].values[0]], 
                                  mode='markers', marker=dict(color='red', size=15), name="Recomendado")
             st.plotly_chart(fig_scan, use_container_width=True)
@@ -64,7 +73,6 @@ def renderizar_fase_no_supervisada():
         num_clusters = st.slider("Selecciona el número de Tribus (Clusters) a generar:", 
                                  min_value=2, max_value=10, value=mejor_k)
         
-        # --- NUEVO SELECTOR DE ALGORITMO ---
         algoritmo_elegido = st.radio("Selecciona el motor matemático:", 
                                      ["K-Means", "Clustering Jerárquico"], 
                                      horizontal=True,
@@ -73,7 +81,6 @@ def renderizar_fase_no_supervisada():
         if st.button("🚀 Iniciar Entrenamiento", type="primary", use_container_width=True):
             with st.spinner(f"Entrenando {algoritmo_elegido} con {num_clusters} clusters..."):
                 try:
-                    # Fíjate que llamamos a la nueva función y le pasamos el algoritmo
                     resultados = no_supervisado_service.entrenar_clustering_3d(df_actual, num_clusters, algoritmo_elegido)
                     st.session_state['resultados_ns'] = resultados
                     st.session_state['fase_actual'] = 4
@@ -98,7 +105,6 @@ def renderizar_fase_no_supervisada():
         var_pca = resultados['varianza_pca']
         nombre_algoritmo = resultados['nombre_algoritmo']
 
-        # 1. KPIs
         c1, c2, c3 = st.columns(3)
         c1.metric("Modelo Usado", nombre_algoritmo)
         c2.metric("Calidad de Agrupación", f"{calidad:.2f}", help="De -1 a 1. Valores cercanos a 1 significan grupos muy bien definidos.")
@@ -137,7 +143,6 @@ def renderizar_fase_no_supervisada():
 
         st.divider()
 
-        # --- NUEVO BOTÓN DE SALTO A FASE 5 ---
         st.markdown("### 🚀 Siguiente Paso: Clasificador de Tribus")
         st.info("Ahora que tienes tus tribus definidas, pasa a la Fase 5 para simular a qué grupo pertenece un nuevo usuario o subir una base de datos nueva para clasificarlos masivamente.")
         
@@ -147,10 +152,7 @@ def renderizar_fase_no_supervisada():
         
         st.divider()
                     
-        # Opciones de salida
         st.markdown("### 📥 Navegar")
-        
-        # Preparar CSV para descarga
         csv_final = df_clusters.drop(columns=['PCA_X', 'PCA_Y', 'PCA_Z']).to_csv(index=False).encode('utf-8')
         
         col_down, col_reset = st.columns(2)
@@ -171,7 +173,7 @@ def renderizar_fase_no_supervisada():
 
 
     # ==========================================
-    #                 FASE 5: PRODUCCIÓN
+    #      FASE 5: PRODUCCIÓN
     # ==========================================
     elif fase == 5:
         st.title("🔮 Fase 5: Clasificador de Tribus")
@@ -210,11 +212,9 @@ def renderizar_fase_no_supervisada():
                                     caja_fuerte_ids = df_procesar[columna_id].copy()
                                     df_procesar = df_procesar.drop(columns=[columna_id], errors='ignore')
                                 
-                                # Reindexar para asegurar el mismo orden de columnas
                                 columnas_entrenamiento = [c for c in df_actual.columns if c != columna_id]
                                 df_limpio = df_procesar.reindex(columns=columnas_entrenamiento)
                                 
-                                # Llamamos a nuestro motor con el hack antibloqueos
                                 predicciones = no_supervisado_service.predecir_nuevos_datos(df_limpio, resultados)
                                 
                                 df_final = pd.DataFrame()

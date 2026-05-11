@@ -2,14 +2,20 @@ import streamlit as st
 from service import data_service
 from sklearn.model_selection import train_test_split
 
-''' 
-Fase 2, unificación de tablas, elección de modelo y procesamiento de los datos:
-    - Detector de Nulos
-    - Detector de datos en Overfitting
-    - Creación de nuevos datos a partir de tus datos
-'''
+"""
+Módulo de la Interfaz de Usuario para la Fase 2 (Limpieza y Transformación).
+Gestiona la unificación de tablas (Merge/Concat), la división de datos (Train/Test)
+y las operaciones de ingeniería de características (imputación de nulos, outliers y nuevas variables).
+"""
 
-def renderizar_fase_procesado():
+
+def renderizar_fase_procesado() -> None:
+    """
+    Renderiza visualmente toda la página de la Fase 2 en Streamlit.
+    Controla el flujo de estado (session_state) para guiar al usuario desde 
+    la unión de DataFrames hasta la limpieza interactiva de los datos.
+    """
+    
     st.title("🧹 Fase 2: Limpieza y Trasformación")
     
     # Recuperamos los datos del estado

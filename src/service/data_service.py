@@ -1,20 +1,32 @@
+"""
+Módulo de Servicio de Datos (Data Service).
+Contiene toda la lógica matemática y de manipulación de DataFrames de Pandas 
+para la Fase 1 (Ingesta) y Fase 2 (Limpieza e Ingeniería de Características).
+Este archivo no tiene interfaz, solo recibe datos, los opera y los devuelve.
+"""
 import pandas as pd
 import streamlit as st
+from typing import Any
 
-''' 
-Aquí metemos todo lo relacionado con la Fase 1 y 2.
-Este archivo solo recibe tablas de datos, 
-opera con ellas usando matemáticas y devuelve resultados.
-'''
 
 #------------------------------------------------------------------------------
 # FASE 1
 #------------------------------------------------------------------------------
-def leer_dataset_universal(archivo):
+def leer_dataset_universal(archivo: Any) -> pd.DataFrame:
     """
-    Lee archivos CSV, Excel o Parquet y devuelve un DataFrame.
-    Incluye manejo de errores para que la app no colapse.
+    Lee archivos subidos en formato CSV, Excel o Parquet.
+    
+    Parámetros:
+    ----------
+    archivo : Any
+        El objeto de archivo subido a través de st.file_uploader.
+        
+    Retorna:
+    -------
+    pd.DataFrame o None
+        El DataFrame cargado en memoria, o None si el formato no es compatible.
     """
+    
     if archivo is None:
         return None
         
@@ -44,8 +56,12 @@ def leer_dataset_universal(archivo):
         return None
     
 
-def generar_resumen_df(df, nombre_archivo):
-    """Extrae datos matemáticos del DataFrame."""
+def generar_resumen_df(df: pd.DataFrame, nombre_archivo: str) -> str:
+    """
+    Analiza un DataFrame para extraer un diagnóstico inicial (filas, columnas, nulos).
+    Este texto es el que consume posteriormente el LLM de Groq.
+    """
+
     filas, columnas = df.shape
     nulos = df.isnull().sum().sum()
     columnas_con_nulos = df.columns[df.isnull().any()].tolist()
@@ -58,13 +74,21 @@ def generar_resumen_df(df, nombre_archivo):
     return resumen
 
 
-def obtener_columnas_comunes(df1, df2):
-    """Devuelve una lista con las columnas que interseccionan en ambos DataFrames."""
+def obtener_columnas_comunes(df1: pd.DataFrame, df2: pd.DataFrame) -> list:
+    """
+    Compara las cabeceras de dos tablas y extrae los nombres coincidentes 
+    para sugerir claves automáticas durante un JOIN.
+    """
+
     return list(set(df1.columns).intersection(set(df2.columns)))
 
 
-def unificar_tablas(df1, df2, col_left, col_right, tipo_join):
-    """Realiza el Merge de dos tablas, soportando nombres de columnas distintos."""
+def unificar_tablas(df1: pd.DataFrame, df2: pd.DataFrame, col_left: str, col_right: str, tipo_join: str) -> pd.DataFrame:
+    """
+    Cruza dos tablas horizontalmente (Merge) utilizando claves primarias.
+    Soporta cruces donde las columnas clave se llaman de forma distinta en cada tabla.
+    """
+
     if col_left == col_right:
         # Si se llaman igual, uso on
         return pd.merge(df1, df2, on=col_left, how=tipo_join)
@@ -73,24 +97,34 @@ def unificar_tablas(df1, df2, col_left, col_right, tipo_join):
         return pd.merge(df1, df2, left_on = col_left, right_on=col_right, how = tipo_join)
     
 
-def preparar_descarga_csv(df):
-    """Convierte el DataFrame completo a CSV."""
+def preparar_descarga_csv(df: pd.DataFrame) -> bytes:
+    """
+    Serializa un DataFrame a un formato de bytes codificado en UTF-8,
+    preparado para ser consumido por el botón de descarga nativo de Streamlit.
+    """
+
     return df.to_csv(index=False, sep=';').encode('utf-8')
 
 
-def apilar_tablas(df1, df2):
-    """Apila dos tablas verticalmente (Concat), alineando las columnas comunes."""
+def apilar_tablas(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
+    """
+    Fusiona dos tablas verticalmente (Concat). Útil para bases de datos
+    con la misma estructura pero diferentes registros.
+    """
+
     return pd.concat([df1, df2], ignore_index=True)
 
 
 #------------------------------------------------------------------------------
 # FASE 2
 #------------------------------------------------------------------------------
-def escanear_dataset(df):
+def escanear_dataset(df: pd.DataFrame) -> dict:
     """
-    Escanea el DataFrame.
-    Alerta de nulos, valores constantes y posibles IDs.
+    Auditoría profunda de la tabla. 
+    Analiza cada columna buscando anomalías matemáticas (varianza cero, alta cardinalidad)
+    para recomendar la limpieza idónea al usuario antes de aplicar ML.
     """
+
     reporte = {
         'total_filas': len(df),
         'duplicados_exactos': int(df.duplicated().sum()),
@@ -129,10 +163,10 @@ def escanear_dataset(df):
     return reporte
 
 
-def aplicar_limpieza(df, acciones):
+def aplicar_limpieza(df: pd.DataFrame, acciones: dict) -> pd.DataFrame:
     """
-    Recibe el DataFrame y un diccionario con las acciones decididas por el usuario.
-    Aplica las transformaciones y devuelve el DataFrame limpio.
+    Ejecuta las mutaciones de limpieza (imputación, borrado) sobre un único dataset.
+    Se utiliza en la ruta No Supervisada donde no existe el concepto de Data Leakage.
     """
 
     df_limpio = df.copy() # Trabajar sobre una copia
@@ -165,11 +199,11 @@ def aplicar_limpieza(df, acciones):
             
     return df_limpio
 
-def aplicar_limpieza_dual(df_train, df_test, acciones):
+def aplicar_limpieza_dual(df_train: pd.DataFrame, df_test: pd.DataFrame, acciones: dict) -> tuple:
     """
-    Recibe Train y Test. Calcula las estadísticas (Media, Mediana, Moda) 
-    sobre el Train solamente, y usa esos valores para rellenar los nulos 
-    Tanto en el Train como en el Test.
+    Limpieza anti Data Leakage para la ruta Supervisada.
+    Calcula las estadísticas (medias, modas) ESTRICTAMENTE sobre el conjunto de Train,
+    y aplica esa misma transformación matemática al Test para no contaminar el experimento.
     """
 
     train_limpio = df_train.copy()
@@ -218,10 +252,16 @@ def aplicar_limpieza_dual(df_train, df_test, acciones):
             
     return train_limpio, test_limpio
 
-def detectar_outliers_iqr(df, col):
-    """Detecta anomalías usando el método IQR y devuelve los índices."""
+def detectar_outliers_iqr(df: pd.DataFrame, col: str) -> list:
+    """
+    Escáner estadístico de Rango Intercuartílico (IQR).
+    Encuentra valores atípicos que están demasiado lejos del núcleo principal
+    de la distribución matemática de la columna.
+    """
+
     if df[col].dtype not in ['int64', 'float64']:
         return []
+    
     # Metodo estandar para detectar valores anómalos
     Q1 = df[col].quantile(0.25)
     Q3 = df[col].quantile(0.75)
@@ -233,8 +273,13 @@ def detectar_outliers_iqr(df, col):
     indices = df[(df[col] < limite_inferior) | (df[col] > limite_superior)].index
     return indices.tolist()
 
-def crear_nueva_columna(df, col1, col2, operacion, nombre_nuevo):
-    """Crea una variable calculada a partir de dos columnas existentes."""
+def crear_nueva_columna(df: pd.DataFrame, col1: str, col2: str, operacion: str, nombre_nuevo: str) -> pd.DataFrame:
+    """
+    Motor de ingeniería de características. 
+    Permite combinar dos columnas numéricas usando matemáticas básicas
+    para crear variables que el modelo pueda aprovechar mejor.
+    """
+    
     try:
         if operacion == "Suma (+)":
             df[nombre_nuevo] = df[col1] + df[col2]
@@ -243,7 +288,7 @@ def crear_nueva_columna(df, col1, col2, operacion, nombre_nuevo):
         elif operacion == "Multiplicación (*)":
             df[nombre_nuevo] = df[col1] * df[col2]
         elif operacion == "División (/)":
-            # Evitamos división por cero con un pequeño truco
+            # Evitamos división por cero
             df[nombre_nuevo] = df[col1] / df[col2].replace(0, 0.001)
         return df
     except Exception as e:

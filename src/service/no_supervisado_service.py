@@ -1,37 +1,53 @@
+"""
+Módulo de Servicio para Clustering (Machine Learning No Supervisado).
+Contiene la lógica matemática para preprocesar datos, escanear el K óptimo, 
+entrenar modelos (K-Means, Jerárquico), reducir dimensiones (PCA 3D) 
+y simular predicciones sobre algoritmos no predictivos usando K-NN.
+"""
 import pandas as pd
 import numpy as np
+from typing import Tuple, Dict, Any
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.cluster import KMeans, AgglomerativeClustering
-from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
+from sklearn.decomposition import PCA
+from sklearn.neighbors import KNeighborsClassifier
 
-def preprocesar_datos_clustering(df):
+
+def preprocesar_datos_clustering(df: pd.DataFrame) -> Tuple[np.ndarray, StandardScaler, dict]:
     """
-    Convierte todo el texto en números de forma segura y escala matemáticamente.
-    K-Means es ciego si no escalamos los datos (un salario de 50.000 aplastaría a una edad de 40).
+    Convierte el texto en números mediante LabelEncoding y aplica un StandardScaler.
+    Paso crítico para distancias euclidianas: evita que variables con números 
+    muy grandes dominen sobre variables más pequeñas.
+    
+    Retorna:
+    -------
+    Tuple
+        Matriz numpy con datos escalados, el objeto StandardScaler y el diccionario de traductores.
     """
+
     df_procesado = df.copy()
     traductores = {}
     
-    # 1. Label Encoding para todo lo que no sea numérico
     for col in df_procesado.columns:
         if df_procesado[col].dtype in ['object', 'string', 'category', 'bool']:
             le = LabelEncoder()
             df_procesado[col] = le.fit_transform(df_procesado[col].astype(str))
             traductores[col] = le
             
-    # 2. Escalado Estándar (Vital para distancias euclidianas)
     scaler = StandardScaler()
     datos_escalados = scaler.fit_transform(df_procesado)
     
     return datos_escalados, scaler, traductores
 
 
-def escanear_mejores_k(datos_escalados, max_k=10):
+def escanear_mejores_k(datos_escalados: np.ndarray, max_k: int = 10) -> Dict[str, Any]:
     """
-    Prueba múltiples agrupaciones y devuelve las métricas matemáticas 
-    para que el usuario no tenga que adivinar cuántos clusters crear.
+    Entrena múltiples modelos K-Means en segundo plano para escanear el 'Silhouette Score'.
+    Calcula matemáticamente cuál es el número óptimo de agrupaciones sin requerir
+    adivinación por parte del usuario.
     """
+
     max_k = min(max_k, len(datos_escalados) - 1)
     k_values = range(2, max_k + 1)
     
@@ -55,14 +71,12 @@ def escanear_mejores_k(datos_escalados, max_k=10):
     }
 
 
-def entrenar_clustering_3d(df, num_clusters, algoritmo):
+def entrenar_clustering_3d(df: pd.DataFrame, num_clusters: int, algoritmo: str) -> Dict[str, Any]:
     """
-    Entrena el modelo definitivo (K-Means o Jerárquico) y comprime la realidad a 3 dimensiones 
-    para poder dibujarla en un gráfico 3D interactivo.
+    Pipeline completo: preprocesa, entrena el algoritmo seleccionado, 
+    calcula la métrica de silueta y aplica PCA (Principal Component Analysis) 
+    para reducir N dimensiones a 3 componentes principales renderizables.
     """
-    from sklearn.cluster import KMeans, AgglomerativeClustering
-    from sklearn.decomposition import PCA
-    from sklearn.metrics import silhouette_score
     
     datos_escalados, scaler, traductores = preprocesar_datos_clustering(df)
     
@@ -101,18 +115,18 @@ def entrenar_clustering_3d(df, num_clusters, algoritmo):
     }
 
 
-def obtener_perfil_clusters(df_con_clusters):
+def obtener_perfil_clusters(df_con_clusters: pd.DataFrame) -> pd.DataFrame:
     """
-    Calcula la media (o la moda para texto) de cada variable dentro de cada cluster.
-    Esto permite a la IA de Negocio explicar qué hace único a cada grupo.
+    Calcula el 'Centroide' conceptual de cada tribu.
+    Aplica la media para columnas numéricas y la moda (valor más frecuente) 
+    para variables categóricas, generando un perfil limpio para la IA o negocio.
     """
+
     columnas_analisis = [c for c in df_con_clusters.columns if c not in ['Cluster', 'PCA_X', 'PCA_Y', 'PCA_Z']]
     
     def calcular_perfil(x):
-        # Usamos la API oficial de Pandas para saber si es puramente matemático
         if pd.api.types.is_numeric_dtype(x):
             return x.mean()
-        # Para todo lo demás (textos, categorías, fechas), cogemos el más repetido
         else:
             return x.mode()[0] if not x.mode().empty else "Desconocido"
 
@@ -121,13 +135,13 @@ def obtener_perfil_clusters(df_con_clusters):
     return resumen
 
 
-def predecir_nuevos_datos(df_nuevo, resultados):
+def predecir_nuevos_datos(df_nuevo: pd.DataFrame, resultados: dict) -> np.ndarray:
     """
-    Procesa clientes nuevos y los asigna a las tribus existentes.
-    Maneja la limitación matemática del Clustering Jerárquico usando un clasificador KNN.
+    Clasifica nuevos individuos en las tribus ya existentes.
+    Si el algoritmo base fue Clustering Jerárquico (que carece de función .predict()),
+    inyecta un modelo K-Nearest Neighbors (KNN) intermedio entrenado al vuelo con 
+    los centroides actuales para resolver la limitación matemática.
     """
-    import pandas as pd
-    from sklearn.neighbors import KNeighborsClassifier
     
     df_proc = df_nuevo.copy()
     traductores = resultados['traductores']
@@ -135,49 +149,39 @@ def predecir_nuevos_datos(df_nuevo, resultados):
     modelo = resultados['modelo_usado']
     algoritmo = resultados['nombre_algoritmo']
 
-    # 1. Aplicar la misma traducción y limpieza al NUEVO usuario
+
     for col in df_proc.columns:
         if col in traductores:
             le = traductores[col]
             clase_defecto = le.classes_[0]
-            # Rellenar nulos
             df_proc[col] = df_proc[col].fillna(clase_defecto).astype(str)
-            # Manejar datos no vistos mapeándolos a -1
             clases_conocidas = set(le.classes_)
             df_proc[col] = df_proc[col].map(lambda x: le.transform([x])[0] if x in clases_conocidas else -1).fillna(-1)
         else:
             df_proc[col] = pd.to_numeric(df_proc[col], errors='coerce').fillna(0)
 
-    # 2. Escalar matemáticamente al nuevo usuario
+    
     X_nuevo = scaler.transform(df_proc)
 
-    # 3. La Predicción (El Hack)
     if algoritmo == "K-Means":
         predicciones = modelo.predict(X_nuevo)
     elif algoritmo == "Clustering Jerárquico":
-        # Hack: Usamos los datos ya clasificados para enseñar a un KNN a asignar nuevos
         df_entrenamiento = resultados['df_con_clusters'].copy()
         columnas_base = [c for c in df_entrenamiento.columns if c not in ['Cluster', 'PCA_X', 'PCA_Y', 'PCA_Z']]
         
         df_train_limpio = df_entrenamiento[columnas_base].copy()
 
-        # 💉 LA CURA: Traducir los textos del entrenamiento a números antes de dárselos al KNN
         for col in df_train_limpio.columns:
             if col in traductores:
-                # Usamos el traductor para volver a convertir 'male' en el número original
                 df_train_limpio[col] = traductores[col].transform(df_train_limpio[col].astype(str))
             else:
                 df_train_limpio[col] = pd.to_numeric(df_train_limpio[col], errors='coerce').fillna(0)
 
-        # Ahora sí, escalamos sin que explote
         datos_originales_escalados = scaler.transform(df_train_limpio)
         etiquetas_originales = df_entrenamiento['Cluster']
 
-        # Entrenamos al portero y predecimos
         knn = KNeighborsClassifier(n_neighbors=3)
         knn.fit(datos_originales_escalados, etiquetas_originales)
         predicciones = knn.predict(X_nuevo)
-    else:
-        raise ValueError("Algoritmo no soportado en producción.")
 
     return predicciones

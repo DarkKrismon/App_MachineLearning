@@ -1,10 +1,11 @@
+"""
+Módulo de conexión con la API de Groq (LLMs).
+Gestiona la comunicación en la nube con los modelos de Inteligencia Artificial
+para generar diagnósticos y reportes de negocio a partir de datos técnicos.
+"""
 import streamlit as st
+import pandas as pd
 from groq import Groq
-
-''' 
-Este script gestiona la conexión en la nube con la Inteligencia Artificial a través de Groq.
-Su única misión es coger un texto, enviarlo al modelo y devolverte la respuesta limpia.
-'''
 
 
 try:
@@ -16,8 +17,19 @@ except Exception:
 MODELO_DEFAULT = "llama-3.1-8b-instant" 
 
 
-def consultar_diagnostico(resumen_total, modelo=MODELO_DEFAULT):
-    """Envía el resumen técnico a la IA para generar un reporte amigable."""
+def consultar_diagnostico(resumen_total: str, modelo: str = MODELO_DEFAULT) -> str:
+    """
+    Envía el resumen técnico inicial de los datos a la IA para generar un 
+    diagnóstico fácil de entender para el usuario.
+    
+    Parámetros:
+    ----------
+    Resumen_total : str
+        El texto crudo con el conteo de filas, columnas y valores nulos.
+    Modelo : str
+        El modelo de Groq a utilizar (por defecto llama-3.1-8b-instant).
+    """
+
     if not cliente_ia:
         return "🚨 Error: No se ha configurado la API Key de Groq en los secretos de Streamlit."
 
@@ -37,15 +49,28 @@ def consultar_diagnostico(resumen_total, modelo=MODELO_DEFAULT):
                 {'role': 'user', 'content': prompt_usuario}
             ],
             model=modelo,
-            temperature=0.3 # Baja temperatura para análisis precisos
+            temperature=0.3
         )
         return respuesta.choices[0].message.content
     except Exception as e:
         return f"🚨 Error en la conexión con la IA (Diagnóstico): {e}"
     
 
-def generar_reporte_ejecutivo(resultados_ml, df_test, columna_target, modelo=MODELO_DEFAULT):
-    """Convierte métricas matemáticas crudas en un reporte de negocio."""
+def generar_reporte_ejecutivo(resultados_ml: dict, df_test: pd.DataFrame, columna_target: str, modelo: str = MODELO_DEFAULT) -> str:
+    """
+    Convierte las métricas matemáticas crudas del modelo supervisado 
+    (precisión, algoritmo ganador) en un reporte estratégico de negocio.
+    
+    Parámetros:
+    ----------
+    resultados_ml : dict
+        Diccionario con las métricas del modelo (score, ganador, etc.).
+    df_test : pd.DataFrame
+        Los datos de prueba para extraer el nombre de las variables usadas.
+    columna_target : str
+        El nombre de la columna que el modelo intentó predecir.
+    """
+    
     if not cliente_ia:
         return "🚨 Error: No se ha configurado la API Key de Groq."
 
@@ -81,11 +106,17 @@ def generar_reporte_ejecutivo(resultados_ml, df_test, columna_target, modelo=MOD
         return f"🚨 Error al generar el reporte ejecutivo: {e}"
 
 
-def interpretar_grupos(df_centroides, modelo=MODELO_DEFAULT):
+def interpretar_grupos(df_centroides: pd.DataFrame, modelo: str = MODELO_DEFAULT) -> str:
     """
-    Toma el DataFrame de los centroides, lo convierte a texto y le pide a la IA
-    que le ponga nombre y apellidos a cada grupo.
+    Traduce los valores medios (centroides) de cada cluster en perfiles 
+    humanos o tribus de negocio para la fase No Supervisada.
+    
+    Parámetros:
+    ----------
+    df_centroides : pd.DataFrame
+        Tabla con los promedios matemáticos de cada grupo.
     """
+
     if not cliente_ia:
         return "🚨 Error: No se ha configurado la API Key de Groq."
 
@@ -120,11 +151,17 @@ def interpretar_grupos(df_centroides, modelo=MODELO_DEFAULT):
 
 
 
-def generar_reporte_clustering(df_perfiles, modelo=MODELO_DEFAULT):
+def generar_reporte_clustering(df_perfiles: pd.DataFrame, modelo: str = MODELO_DEFAULT) -> str:
     """
-    Lee los promedios matemáticos de los clusters y redacta un informe ejecutivo.
-    Utiliza el cliente_ia ya definido globalmente en este script.
+    Redacta un informe estratégico bautizando a cada cluster basándose 
+    en sus características medias y propone estrategias de acción.
+    
+    Parámetros:
+    ----------
+    df_perfiles : pd.DataFrame
+        Tabla con los perfiles matemáticos de cada tribu/cluster.
     """
+
     if not cliente_ia:
         return "🚨 Error: No se ha configurado la API Key de Groq en los secretos de Streamlit."
 
@@ -151,7 +188,6 @@ def generar_reporte_clustering(df_perfiles, modelo=MODELO_DEFAULT):
     """
     
     try:
-        # Usamos cliente_ia que es tu variable definida al inicio del script
         respuesta = cliente_ia.chat.completions.create(
             messages=[
                 {'role': 'system', 'content': prompt_sistema},

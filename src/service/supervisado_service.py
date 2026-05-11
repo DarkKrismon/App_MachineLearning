@@ -6,17 +6,37 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, Grad
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.svm import SVC, SVR
 import pandas as pd
+from typing import Dict, Any
 
-''' 
-Encargado de las funciones para la Fase 4
-de modelo Supervisado.
-Funciones que reciben y devuelven valores listos.
-'''
+"""
+Módulo de Servicio para Machine Learning Supervisado.
+Contiene el motor de entrenamiento de la Fase 3 (AutoML y GridSearchCV), 
+incluyendo codificación, escalado, cross-validation estricto en Train y 
+generación de reportes de rendimiento y matrices de confusión.
+"""
 
-def entrenar_automl(df_train, df_test, columna_target, hiperparametros):
-    ''' 
-    Ejecuta los los 5 modelos extrayendo los mejores resultados.
-    '''
+def entrenar_automl(df_train: pd.DataFrame, df_test: pd.DataFrame, columna_target: str, hiperparametros: dict) -> Dict[str, Any]:
+    """
+    Entrena cinco algoritmos en paralelo utilizando Cross-Validation sobre el conjunto de Train.
+    Selecciona automáticamente el ganador, lo entrena de forma final y evalúa su rendimiento 
+    contra el conjunto de Test para evitar métricas sesgadas por Data Leakage.
+    
+    Parámetros:
+    ----------
+    df_train : pd.DataFrame
+        Los datos de entrenamiento limpios.
+    df_test : pd.DataFrame
+        Los datos de examen (invisibles para el modelo durante el entrenamiento).
+    columna_target : str
+        La variable que se intenta predecir.
+    hiperparametros : dict
+        Los ajustes seleccionados por el usuario desde la UI.
+        
+    Retorna:
+    -------
+    dict
+        Un diccionario empaquetando el modelo ganador, los traductores, el escalador y las métricas.
+    """
 
     X_train = df_train.drop(columns=[columna_target]).copy()
     y_train = df_train[columna_target].copy()
@@ -147,10 +167,18 @@ def entrenar_automl(df_train, df_test, columna_target, hiperparametros):
     }
 
 
-def entrenar_automl_gridsearch(df_train, df_test, columna_target):
+def entrenar_automl_gridsearch(df_train: pd.DataFrame, df_test: pd.DataFrame, columna_target: str) -> Dict[str, Any]:
     """
-    Ejecuta un GridSearchCV exhaustivo sobre Random Forest usando Train.
-    Evalúa en el Test.
+    Ejecuta una búsqueda en cuadrícula (GridSearchCV) sobre un Random Forest
+    para encontrar matemáticamente la mejor combinación posible de hiperparámetros.
+    Es más lento pero potencialmente más preciso que los ajustes manuales.
+    
+    Parámetros:
+    ----------
+    df_train, df_test : pd.DataFrame
+        Los conjuntos de datos.
+    columna_target : str
+        La variable a predecir.
     """
     
     X_train = df_train.drop(columns=[columna_target]).copy()
@@ -247,8 +275,12 @@ def entrenar_automl_gridsearch(df_train, df_test, columna_target):
 # FASE 4
 #------------------------------------------------------------------------------
 
-def obtener_importancia_variables(modelo_entrenado, nombres_columnas):
-    """Extrae el valor matemático que el modelo le ha dado a cada columna."""
+def obtener_importancia_variables(modelo_entrenado: Any, nombres_columnas: list) -> pd.DataFrame:
+    """
+    Extrae los coeficientes o la importancia de características (feature_importances_)
+    del modelo entrenado para entender el peso de cada variable en la decisión final.
+    Devuelve un DataFrame listo para ser graficado con Plotly, o None si el modelo no lo soporta.
+    """
 
     # Los modelos basados en árboles
     if hasattr(modelo_entrenado, 'feature_importances_'):

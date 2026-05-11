@@ -6,12 +6,21 @@ from service import supervisado_service
 from service import data_service
 
 
-''' 
-Encargado visual de la fase 3, 4 y 5 de modelo supervisado 
-llamando a la función "renderizar_fase_supervisada""
-'''
+"""
+Módulo de la Interfaz de Usuario para la Ruta Supervisada (Fases 3, 4 y 5).
+Gestiona la configuración de hiperparámetros, el entrenamiento de modelos (AutoML), 
+la visualización del dashboard de resultados y el simulador de predicciones en producción.
+"""
 
-def renderizar_fase_supervisada():
+
+def renderizar_fase_supervisada() -> None:
+    """
+    Renderiza visualmente el pipeline completo del aprendizaje supervisado.
+    Controla la Fase 3 (Ajuste de hiperparámetros y entrenamiento múltiple),
+    la Fase 4 (Dashboard de métricas técnicas y reporte IA) y
+    la Fase 5 (Predicciones masivas vía CSV y simulador de casos en vivo).
+    """
+    
     fase = st.session_state.get('fase_actual', 3)
 
     df_train = st.session_state.get('df_train')

@@ -1,11 +1,21 @@
+"""
+Punto de entrada principal de la aplicación.
+Gestiona la configuración global de Streamlit, inyecta los estilos CSS 
+y actúa como un enrutador redirigiendo al usuario a la fase correspondiente.
+"""
+
 import os
 import streamlit as st
 from modulos import ingesta_ui, procesado_ui
 
 
-def cargar_css():
-    """Lee el archivo CSS externo y lo inyecta en Streamlit"""
-    # Ajusta la ruta dependiendo de dónde hayas creado la carpeta assets
+def cargar_css() -> None:
+    """
+    Lee el archivo CSS externo y lo inyecta en la aplicación.
+    Se utiliza para aplicar el 'White-labeling' (ocultar marcas de Streamlit)
+    sin ensuciar el código Python con estilos en línea.
+    """
+
     ruta_css = os.path.join(os.path.dirname(__file__), "assets", "styles.css")
     
     try:
@@ -14,8 +24,17 @@ def cargar_css():
     except FileNotFoundError:
         st.warning("⚠️ No se encontró el archivo styles.css")
 
-def renderizar_gps(fase_actual):
-    """Genera el HTML del GPS utilizando las clases del archivo styles.css"""
+def renderizar_gps(fase_actual: int) -> None:
+    """
+    Genera el HTML de la barra de progreso superior.
+    
+    Parámetros:
+    ---
+    Fase_actual : int
+        El número de la fase actual (del 1 al 5) para determinar qué paso
+        pintar de verde (completado), azul (actual) o gris (pendiente).
+    """
+
     pasos = ["📥 Ingesta", "🛠️ Procesado", "⚙️ Entrenamiento", "📊 Análisis", "🔮 Producción"]
     
     st.markdown('<div class="gps-container">', unsafe_allow_html=True)
@@ -44,14 +63,10 @@ def renderizar_gps(fase_actual):
     st.write("")
 
 
-def main():
-    # 1. Cargar el motor de estilos
+def main() -> None:
+    
     cargar_css()
-    
-    # 2. Recuperar la fase
     fase = st.session_state.get('fase_actual', 0)
-    
-    # 3. Dibujar el GPS
     if fase > 0:
         renderizar_gps(fase)
     
@@ -74,9 +89,9 @@ def main():
             
             st.title("🧠 AutoML")
             st.markdown("### Tu copiloto de Machine Learning")
-            st.markdown("Sube tus datos, descubre patrones ocultos y entrena modelos predictivos de forma guiada y sin escribir código.")
+            st.markdown("Sube tus datos, descubre patrones ocultos y entrena modelos predictivos de forma guiada y sin escribir **Ni una línea de código**.")
 
-            st.write("Por: Juan Ramón Torres Martínez")
+            st.write("By: Juan Ramón Torres Martínez")
             
 
             if st.button("Comenzar Análisis", use_container_width=True):
@@ -84,7 +99,7 @@ def main():
                 st.rerun()
 
     # =========================================================
-    # FASE 1
+    # FASE 1: INGESTA DE DATOS
     # =========================================================
     elif fase == 1:
         ingesta_ui.renderizar_fase_ingesta()
@@ -98,7 +113,7 @@ def main():
         procesado_ui.renderizar_fase_procesado()
 
     # =========================================================
-    # FASE 3 y 4: ENTRENAMIENTO Y RESULTADOS
+    # FASES 3, 4, 5: ENTRENAMIENTO, RESULTADOS Y PREDICCIONES
     # =========================================================
 
     elif fase in [3, 4, 5]:
