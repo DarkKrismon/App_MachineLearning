@@ -55,7 +55,7 @@ def escanear_mejores_k(datos_escalados, max_k=10):
     }
 
 
-def entrenar_clustering_3d(df, num_clusters, algoritmo="K-Means"):
+def entrenar_clustering_3d(df, num_clusters, algoritmo):
     """
     Entrena el modelo definitivo (K-Means o Jerárquico) y comprime la realidad a 3 dimensiones 
     para poder dibujarla en un gráfico 3D interactivo.
@@ -119,3 +119,65 @@ def obtener_perfil_clusters(df_con_clusters):
     resumen = df_con_clusters.groupby('Cluster')[columnas_analisis].agg(calcular_perfil).reset_index()
     
     return resumen
+
+
+def predecir_nuevos_datos(df_nuevo, resultados):
+    """
+    Procesa clientes nuevos y los asigna a las tribus existentes.
+    Maneja la limitación matemática del Clustering Jerárquico usando un clasificador KNN.
+    """
+    import pandas as pd
+    from sklearn.neighbors import KNeighborsClassifier
+    
+    df_proc = df_nuevo.copy()
+    traductores = resultados['traductores']
+    scaler = resultados['scaler']
+    modelo = resultados['modelo_usado']
+    algoritmo = resultados['nombre_algoritmo']
+
+    # 1. Aplicar la misma traducción y limpieza al NUEVO usuario
+    for col in df_proc.columns:
+        if col in traductores:
+            le = traductores[col]
+            clase_defecto = le.classes_[0]
+            # Rellenar nulos
+            df_proc[col] = df_proc[col].fillna(clase_defecto).astype(str)
+            # Manejar datos no vistos mapeándolos a -1
+            clases_conocidas = set(le.classes_)
+            df_proc[col] = df_proc[col].map(lambda x: le.transform([x])[0] if x in clases_conocidas else -1).fillna(-1)
+        else:
+            df_proc[col] = pd.to_numeric(df_proc[col], errors='coerce').fillna(0)
+
+    # 2. Escalar matemáticamente al nuevo usuario
+    X_nuevo = scaler.transform(df_proc)
+
+    # 3. La Predicción (El Hack)
+    if algoritmo == "K-Means":
+        predicciones = modelo.predict(X_nuevo)
+    elif algoritmo == "Clustering Jerárquico":
+        # Hack: Usamos los datos ya clasificados para enseñar a un KNN a asignar nuevos
+        df_entrenamiento = resultados['df_con_clusters'].copy()
+        columnas_base = [c for c in df_entrenamiento.columns if c not in ['Cluster', 'PCA_X', 'PCA_Y', 'PCA_Z']]
+        
+        df_train_limpio = df_entrenamiento[columnas_base].copy()
+
+        # 💉 LA CURA: Traducir los textos del entrenamiento a números antes de dárselos al KNN
+        for col in df_train_limpio.columns:
+            if col in traductores:
+                # Usamos el traductor para volver a convertir 'male' en el número original
+                df_train_limpio[col] = traductores[col].transform(df_train_limpio[col].astype(str))
+            else:
+                df_train_limpio[col] = pd.to_numeric(df_train_limpio[col], errors='coerce').fillna(0)
+
+        # Ahora sí, escalamos sin que explote
+        datos_originales_escalados = scaler.transform(df_train_limpio)
+        etiquetas_originales = df_entrenamiento['Cluster']
+
+        # Entrenamos al portero y predecimos
+        knn = KNeighborsClassifier(n_neighbors=3)
+        knn.fit(datos_originales_escalados, etiquetas_originales)
+        predicciones = knn.predict(X_nuevo)
+    else:
+        raise ValueError("Algoritmo no soportado en producción.")
+
+    return predicciones

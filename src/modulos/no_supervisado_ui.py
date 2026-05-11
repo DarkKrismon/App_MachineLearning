@@ -96,10 +96,11 @@ def renderizar_fase_no_supervisada():
         df_clusters = resultados['df_con_clusters']
         calidad = resultados['calidad_silueta']
         var_pca = resultados['varianza_pca']
+        nombre_algoritmo = resultados['nombre_algoritmo']
 
         # 1. KPIs
         c1, c2, c3 = st.columns(3)
-        c1.metric("Modelo Usado", "K-Means")
+        c1.metric("Modelo Usado", nombre_algoritmo)
         c2.metric("Calidad de Agrupación", f"{calidad:.2f}", help="De -1 a 1. Valores cercanos a 1 significan grupos muy bien definidos.")
         c3.metric("Datos retenidos en el 3D", f"{var_pca:.1f}%", help="Al aplastar tus datos a 3 dimensiones para dibujarlos, este es el porcentaje de realidad que sobrevive.")
 
@@ -136,8 +137,18 @@ def renderizar_fase_no_supervisada():
 
         st.divider()
 
+        # --- NUEVO BOTÓN DE SALTO A FASE 5 ---
+        st.markdown("### 🚀 Siguiente Paso: Clasificador de Tribus")
+        st.info("Ahora que tienes tus tribus definidas, pasa a la Fase 5 para simular a qué grupo pertenece un nuevo usuario o subir una base de datos nueva para clasificarlos masivamente.")
+        
+        if st.button("🔮 Ir a Fase 5 (Simulador en Producción)", type="primary", use_container_width=True):
+            st.session_state['fase_actual'] = 5
+            st.rerun()
+        
+        st.divider()
+                    
         # Opciones de salida
-        st.markdown("### 📥 Siguiente Paso")
+        st.markdown("### 📥 Navegar")
         
         # Preparar CSV para descarga
         csv_final = df_clusters.drop(columns=['PCA_X', 'PCA_Y', 'PCA_Z']).to_csv(index=False).encode('utf-8')
@@ -156,4 +167,124 @@ def renderizar_fase_no_supervisada():
         with col_reset:
             if st.button("🔄 Volver a intentar (Ir a Fase 3)", use_container_width=True):
                 st.session_state['fase_actual'] = 3
+                st.rerun()
+
+
+    # ==========================================
+    #                 FASE 5: PRODUCCIÓN
+    # ==========================================
+    elif fase == 5:
+        st.title("🔮 Fase 5: Clasificador de Tribus")
+        st.markdown("El modelo ya sabe cómo dividir a la población. Usa estas herramientas para clasificar nuevos individuos.")
+
+        resultados = st.session_state.get('resultados_ns')
+        
+        if resultados is None or df_actual is None:
+            st.error("🚨 El modelo no está en memoria. Vuelve a la Fase 3 y entrénalo.")
+        else:
+            tab_lotes, tab_vivo = st.tabs(["📁 Clasificación Masiva (CSV)", "🎛️ Simulador de Individuos"])
+
+            # ---------------------------------------------------------
+            # PESTAÑA 1: PREDICCIÓN POR LOTES
+            # ---------------------------------------------------------
+            with tab_lotes:
+                st.markdown("### 📥 Asignación de Tribus en Bloque")
+                archivo_nuevo = st.file_uploader("Sube el CSV con los nuevos datos:", type=["csv", "xlsx", "parquet"], key="uploader_ns")
+                
+                if archivo_nuevo:
+                    from service import data_service
+                    df_nuevo = data_service.leer_dataset_universal(archivo_nuevo)
+                    
+                    if df_nuevo is not None:
+                        st.write("**Vista previa de los datos limpios:**")
+                        st.dataframe(df_nuevo.head(3))
+
+                        columna_id = st.selectbox("¿Hay alguna columna de Identidad (ID/Nombre)?", ["Ninguna"] + df_nuevo.columns.tolist())
+                        
+                        if st.button("🚀 Ejecutar Clasificación", type="primary"):
+                            try:
+                                df_procesar = df_nuevo.copy()
+                                
+                                caja_fuerte_ids = None
+                                if columna_id != "Ninguna":
+                                    caja_fuerte_ids = df_procesar[columna_id].copy()
+                                    df_procesar = df_procesar.drop(columns=[columna_id], errors='ignore')
+                                
+                                # Reindexar para asegurar el mismo orden de columnas
+                                columnas_entrenamiento = [c for c in df_actual.columns if c != columna_id]
+                                df_limpio = df_procesar.reindex(columns=columnas_entrenamiento)
+                                
+                                # Llamamos a nuestro motor con el hack antibloqueos
+                                predicciones = no_supervisado_service.predecir_nuevos_datos(df_limpio, resultados)
+                                
+                                df_final = pd.DataFrame()
+                                if caja_fuerte_ids is not None:
+                                    df_final[columna_id] = caja_fuerte_ids
+                                df_final['Tribu_Asignada'] = predicciones
+                                
+                                st.success("✅ ¡Clasificación masiva completada!")
+                                st.dataframe(df_final, use_container_width=True)
+                                
+                                csv_final = df_final.to_csv(index=False).encode('utf-8')
+                                st.download_button(label="💾 Descargar Clasificación (.csv)", data=csv_final, file_name="clasificacion_tribus.csv", mime="text/csv")
+
+                            except Exception as e:
+                                st.error(f"⚠️ Error procesando los datos: {e}")
+
+            # ---------------------------------------------------------
+            # PESTAÑA 2: SIMULADOR EN VIVO
+            # ---------------------------------------------------------
+            with tab_vivo:
+                st.markdown("### 🎛️ Simulador de Tribu")
+                
+                with st.form("form_simulador_ns"):
+                    columnas_ui = st.columns(3)
+                    input_usuario = {}
+                    
+                    columnas_entrenamiento = df_actual.columns.tolist()
+                    
+                    for idx, col in enumerate(columnas_entrenamiento):
+                        with columnas_ui[idx % 3]:
+                            if pd.api.types.is_numeric_dtype(df_actual[col]):
+                                v_min = float(df_actual[col].min())
+                                v_max = float(df_actual[col].max())
+                                v_mean = float(df_actual[col].mean())
+                                if v_min == v_max:
+                                    input_usuario[col] = st.number_input(f"{col}", value=v_min)
+                                else:
+                                    input_usuario[col] = st.slider(f"{col}", min_value=v_min, max_value=v_max, value=v_mean)
+                            else:
+                                opciones = df_actual[col].dropna().unique().tolist()
+                                input_usuario[col] = st.selectbox(f"{col}", options=opciones)
+                                
+                    submit_simulacion = st.form_submit_button("🔮 ¿A qué Tribu pertenece?", type="primary", use_container_width=True)
+                    
+                if submit_simulacion:
+                    try:
+                        df_sim = pd.DataFrame([input_usuario])
+                        pred_cruda = no_supervisado_service.predecir_nuevos_datos(df_sim, resultados)
+                        tribu_final = pred_cruda[0]
+                        
+                        st.divider()
+                        st.markdown(f"<h2 style='text-align: center; color: #4CAF50;'>Pertenece a la Tribu: {tribu_final}</h2>", unsafe_allow_html=True)
+                        
+                    except Exception as e:
+                        st.error(f"Error en la simulación: {e}")
+
+        # --- NAVEGACIÓN INFERIOR ---
+        st.divider()
+        st.markdown("### 🧭 Navegación")
+        col_back, col_reset = st.columns(2)
+        
+        with col_back:
+            if st.button("⬅️ Volver al Observatorio (Fase 4)", use_container_width=True):
+                st.session_state['fase_actual'] = 4
+                st.rerun()
+                
+        with col_reset:
+            if st.button("🔄 Proyecto Nuevo (Fase 1)", type="secondary", use_container_width=True):
+                for key in list(st.session_state.keys()):
+                    if key != 'fase_actual':
+                        del st.session_state[key]
+                st.session_state['fase_actual'] = 1
                 st.rerun()
