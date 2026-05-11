@@ -460,7 +460,7 @@ def renderizar_fase_supervisada():
                         pred_legible = traductor_y.inverse_transform(pred_cruda)[0] if traductor_y else pred_cruda[0]
                         
                         st.divider()
-                        st.markdown(f"<h2 style='text-align: center; color: #4CAF50;'>Resultado: {pred_legible}</h2>", unsafe_allow_html=True)
+                        st.markdown(f'<div class="resultado-prediccion">Resultado Predicho: {pred_legible}</div>', unsafe_allow_html=True)
                         
                     except Exception as e:
                         st.error(f"Error en la simulación: {e}")

@@ -266,7 +266,7 @@ def renderizar_fase_no_supervisada():
                         tribu_final = pred_cruda[0]
                         
                         st.divider()
-                        st.markdown(f"<h2 style='text-align: center; color: #4CAF50;'>Pertenece a la Tribu: {tribu_final}</h2>", unsafe_allow_html=True)
+                        st.markdown(f'<div class="resultado-prediccion">Pertenece a la Tribu: {tribu_final}</div>', unsafe_allow_html=True)
                         
                     except Exception as e:
                         st.error(f"Error en la simulación: {e}")

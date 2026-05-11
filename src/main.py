@@ -1,7 +1,60 @@
+import os
 import streamlit as st
 from modulos import ingesta_ui, procesado_ui
 
+
+def cargar_css():
+    """Lee el archivo CSS externo y lo inyecta en Streamlit"""
+    # Ajusta la ruta dependiendo de dónde hayas creado la carpeta assets
+    ruta_css = os.path.join(os.path.dirname(__file__), "assets", "styles.css")
+    
+    try:
+        with open(ruta_css, "r") as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    except FileNotFoundError:
+        st.warning("⚠️ No se encontró el archivo styles.css")
+
+def renderizar_gps(fase_actual):
+    """Genera el HTML del GPS utilizando las clases del archivo styles.css"""
+    pasos = ["📥 Ingesta", "🛠️ Procesado", "⚙️ Entrenamiento", "📊 Análisis", "🔮 Producción"]
+    
+    st.markdown('<div class="gps-container">', unsafe_allow_html=True)
+    cols = st.columns(len(pasos))
+    
+    for i, nombre in enumerate(pasos):
+        paso_num = i + 1
+        with cols[i]:
+            if paso_num < fase_actual:
+                estado_clase = "step-done"
+                texto_estado = "✅ Listo"
+            elif paso_num == fase_actual:
+                estado_clase = "step-active"
+                texto_estado = "📍 Estás aquí"
+            else:
+                estado_clase = "step-future"
+                texto_estado = "🔒 Esperando"
+                
+            st.markdown(f"""
+                <div class="step-box {estado_clase}">
+                    <div class="step-title">{nombre}</div>
+                    <div class="step-status">{texto_estado}</div>
+                </div>
+            """, unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.write("")
+
+
 def main():
+    # 1. Cargar el motor de estilos
+    cargar_css()
+    
+    # 2. Recuperar la fase
+    fase = st.session_state.get('fase_actual', 0)
+    
+    # 3. Dibujar el GPS
+    if fase > 0:
+        renderizar_gps(fase)
+    
     st.set_page_config(page_title="Machine-Learning", page_icon="🤖", layout="wide")
 
     if 'fase_actual' not in st.session_state:

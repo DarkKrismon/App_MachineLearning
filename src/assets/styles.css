@@ -1,0 +1,74 @@
+/* =========================================
+   1. WHITE-LABELING (Ocultar Streamlit)
+   ========================================= */
+#MainMenu {visibility: hidden;} /* Oculta la hamburguesa de arriba a la derecha */
+footer {visibility: hidden;}    /* Oculta el "Made with Streamlit" de abajo */
+header {visibility: hidden;}    /* Oculta la barra superior transparente */
+
+/* =========================================
+   2. EL GPS (Barra de progreso)
+   ========================================= */
+.gps-container {
+    margin-bottom: 2rem;
+}
+
+.step-box {
+    text-align: center;
+    padding-bottom: 8px;
+}
+
+/* Estado: Completado (Verde) */
+.step-done {
+    border-bottom: 4px solid #4CAF50;
+}
+.step-done .step-title {
+    color: #4CAF50;
+    font-weight: bold;
+}
+.step-done .step-status {
+    font-size: 0.8rem;
+    color: #4CAF50;
+}
+
+/* Estado: Actual (Azul) */
+.step-active {
+    border-bottom: 4px solid #3498db;
+}
+.step-active .step-title {
+    color: #3498db;
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+.step-active .step-status {
+    font-size: 0.8rem;
+    color: #3498db;
+}
+
+/* Estado: Futuro (Gris) */
+.step-future {
+    border-bottom: 4px solid #e0e0e0;
+}
+.step-future .step-title {
+    color: #bdbdbd;
+    font-weight: normal;
+}
+.step-future .step-status {
+    font-size: 0.8rem;
+    color: #bdbdbd;
+}
+
+/* =========================================
+   3. RESULTADOS DE SIMULACIÓN (Fase 5)
+   ========================================= 
+*/
+.resultado-prediccion {
+    text-align: center;
+    color: #4CAF50; /* Verde éxito */
+    font-size: 2.2rem;
+    font-weight: bold;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    padding: 10px;
+    border-radius: 8px;
+    background-color: rgba(76, 175, 80, 0.1); /* Fondo verde muy sutil */
+}
